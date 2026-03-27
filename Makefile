@@ -35,6 +35,18 @@ clean:
 sqlc:
 	@sqlc generate
 
+# build go server
+build:
+	@go build -o ./bin/$(BINARY_NAME) ./cmd/api/main.go
+
+# run go server
+run:
+	@./bin/$(BINARY_NAME)
+
+# clean build dir
+clean:
+	@rm -rf bin/
+
 # goose migration up by one
 up:
 	@goose postgres "$(CONNECTION_STRING_IPV4)" -dir ./sql/schema up
@@ -45,4 +57,8 @@ down:
 
 # goose status
 status:
+<<<<<<< HEAD
 	@goose postgres "$(CONNECTION_STRING_IPV4)" -dir ./sql/schema status
+=======
+	@goose postgres "$(CONNECTION_STRING_IPV4)" -dir ./sql/schema status
+>>>>>>> 6758e25ec20fa4878db4f31c11f5009bd03bec80
