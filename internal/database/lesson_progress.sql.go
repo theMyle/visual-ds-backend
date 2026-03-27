@@ -7,23 +7,24 @@ package database
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const createLessonProgressEntry = `-- name: CreateLessonProgressEntry :one
 INSERT INTO lesson_progress(user_id, lesson_slug)
-VALUES ($1, $2)
+VALUES (
+    (SELECT user_id FROM users WHERE clerk_id = $1),
+    $2
+)
 RETURNING user_id, lesson_slug, completed_at
 `
 
 type CreateLessonProgressEntryParams struct {
-	UserID     uuid.UUID
+	ClerkID    string
 	LessonSlug string
 }
 
 func (q *Queries) CreateLessonProgressEntry(ctx context.Context, arg CreateLessonProgressEntryParams) (LessonProgress, error) {
-	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.UserID, arg.LessonSlug)
+	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.ClerkID, arg.LessonSlug)
 	var i LessonProgress
 	err := row.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt)
 	return i, err

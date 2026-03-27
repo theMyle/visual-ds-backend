@@ -1,7 +1,10 @@
 
 -- name: CreateLessonProgressEntry :one
 INSERT INTO lesson_progress(user_id, lesson_slug)
-VALUES ($1, $2)
+VALUES (
+    (SELECT user_id FROM users WHERE clerk_id = $1),
+    $2
+)
 RETURNING *;
 
 -- name: DeleteLessonProgress :one
