@@ -1,0 +1,5 @@
+## Requirements
+
+- make
+- goose
+- sqlc
