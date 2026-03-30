@@ -19,6 +19,7 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/users/{id}", s.GetUser)
 	mux.HandleFunc("GET /api/users", s.GetAllUser)
 
+	// TODO: replace mock auth middleware with clerk
 	mux.Handle(
 		"GET /api/progress",
 		s.MockAuthMiddleware(
@@ -31,12 +32,10 @@ func (s *Server) Routes() *http.ServeMux {
 			http.HandlerFunc(s.CreateLessonProgress),
 		),
 	)
-	// TODO: replace mock auth middleware with clerk
+	mux.HandleFunc("DELETE /api/progress/{category}/{id}", http.NotFound)
 
-	// mux.HandleFunc("POST /api/progress/{lesson_cagetory}/{lesson_id}", http.NotFound)
 	// mux.HandleFunc("GET /api/progress/{category}/{id}", http.NotFound)
 	// mux.HandleFunc("DELETE /api/progress", http.NotFound)
-	mux.HandleFunc("DELETE /api/progress/{category}/{id}", http.NotFound)
 
 	mux.HandleFunc("POST /api/quizzes/{id}", http.NotFound)
 	mux.HandleFunc("GET /api/quizzes/{id}", http.NotFound)

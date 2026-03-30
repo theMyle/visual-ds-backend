@@ -32,7 +32,6 @@ func ToLessonProgress(l database.LessonProgress) LessonProgressResponse {
 // Handlers
 
 func (s *Server) GetAllLessonProgress(w http.ResponseWriter, r *http.Request) {
-	// i need userid here
 	val := r.Context().Value("user_id")
 	userid, ok := val.(uuid.UUID)
 	if !ok {
@@ -73,8 +72,10 @@ func (s *Server) CreateLessonProgress(w http.ResponseWriter, r *http.Request) {
 	lessonID := strings.ToLower(strings.TrimSpace(rawID))
 
 	if lessonCategory == "" || lessonID == "" {
-		s.Logger.Warn("invalid lesson_category or lesson_id", "lesson_category", lessonCategory,
-			"lesson_id", lessonID)
+		s.Logger.Warn("invalid lesson_category or lesson_id",
+			"lesson_category", lessonCategory,
+			"lesson_id", lessonID,
+		)
 		s.CreateErrorResponseJSON(w, "Invalid lesson parameters", http.StatusBadRequest)
 		return
 	}

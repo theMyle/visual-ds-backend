@@ -14,39 +14,37 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	// env variables setup
-	dbURL := os.Getenv("DB_URL_IPV4")
 	env := os.Getenv("ENV")
 
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		log.Fatal("Error connecting to DB: ", err)
-	}
-
-	// db connection check
-	err = db.Ping()
-	if err != nil {
-		log.Fatal("Error connecting to DB: ", err)
-	}
-	log.Println("DB Connection Established")
-
-	// logger setup
 	var logger slog.Handler
+	var DBurl string
 
 	if env == "production" {
+		DBurl = os.Getenv("DB_URL")
 		logger = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		})
 	} else {
+		DBurl = os.Getenv("DB_URL_IPV4")
 		logger = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			Level: slog.LevelDebug,
 		})
 	}
+
+	db, err := sql.Open("postgres", DBurl)
+	if err != nil {
+		log.Fatal("Error connecting to DB: ", err)
+	}
+
+	if err = db.Ping(); err != nil {
+		log.Fatal("Error connecting to DB: ", err)
+	}
+
+	log.Println("DB Connection Established")
 
 	app := api.Server{
 		DB:     database.New(db),
@@ -59,7 +57,7 @@ func main() {
 		Handler: app.Routes(),
 	}
 
-	log.Println("Start listening at port", app.Addr)
+	log.Println("Starting to listen at port", app.Addr)
 	if err := httpServer.ListenAndServe(); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
