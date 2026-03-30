@@ -45,12 +45,12 @@ func (q *Queries) CreateQuizResultEntry(ctx context.Context, arg CreateQuizResul
 const deleteAllQuizResultEntry = `-- name: DeleteAllQuizResultEntry :many
 DELETE FROM quiz_results
 WHERE
-    user_id = (SELECT user_id FROM users WHERE clerk_id = $1)
+    user_id = $1
 RETURNING user_id, quiz_id, score, total_items, taken_at
 `
 
-func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, clerkID string) ([]QuizResult, error) {
-	rows, err := q.db.QueryContext(ctx, deleteAllQuizResultEntry, clerkID)
+func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
+	rows, err := q.db.QueryContext(ctx, deleteAllQuizResultEntry, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,18 +81,18 @@ func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, clerkID string) 
 const deleteQuizResultEntry = `-- name: DeleteQuizResultEntry :one
 DELETE FROM quiz_results
 WHERE
-    user_id = (SELECT user_id FROM users WHERE clerk_id = $1)
+    user_id = $1
     AND quiz_id = $2
 RETURNING user_id, quiz_id, score, total_items, taken_at
 `
 
 type DeleteQuizResultEntryParams struct {
-	ClerkID string
-	QuizID  string
+	UserID uuid.UUID
+	QuizID string
 }
 
 func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResultEntryParams) (QuizResult, error) {
-	row := q.db.QueryRowContext(ctx, deleteQuizResultEntry, arg.ClerkID, arg.QuizID)
+	row := q.db.QueryRowContext(ctx, deleteQuizResultEntry, arg.UserID, arg.QuizID)
 	var i QuizResult
 	err := row.Scan(
 		&i.UserID,
@@ -102,4 +102,39 @@ func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResul
 		&i.TakenAt,
 	)
 	return i, err
+}
+
+const getAllQuizResultEntry = `-- name: GetAllQuizResultEntry :many
+SELECT user_id, quiz_id, score, total_items, taken_at FROM quiz_results
+WHERE
+    user_id = $1
+`
+
+func (q *Queries) GetAllQuizResultEntry(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
+	rows, err := q.db.QueryContext(ctx, getAllQuizResultEntry, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QuizResult
+	for rows.Next() {
+		var i QuizResult
+		if err := rows.Scan(
+			&i.UserID,
+			&i.QuizID,
+			&i.Score,
+			&i.TotalItems,
+			&i.TakenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

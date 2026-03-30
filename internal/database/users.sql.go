@@ -19,18 +19,20 @@ INSERT INTO users(
     first_name,
     middle_name,
     last_name,
+    email,
     block_id
 )
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id
 `
 
 type CreateUserParams struct {
 	ClerkID    string
 	CourseID   uuid.NullUUID
-	FirstName  sql.NullString
+	FirstName  string
 	MiddleName sql.NullString
-	LastName   sql.NullString
+	LastName   string
+	Email      string
 	BlockID    sql.NullString
 }
 
@@ -41,6 +43,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.FirstName,
 		arg.MiddleName,
 		arg.LastName,
+		arg.Email,
 		arg.BlockID,
 	)
 	var i User
@@ -51,6 +54,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.FirstName,
 		&i.MiddleName,
 		&i.LastName,
+		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.BlockID,
@@ -59,7 +63,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getAllUsers = `-- name: GetAllUsers :many
-SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id from users
+SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id from users
 `
 
 func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
@@ -78,6 +82,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 			&i.FirstName,
 			&i.MiddleName,
 			&i.LastName,
+			&i.Email,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BlockID,
@@ -96,7 +101,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]User, error) {
 }
 
 const getAllUsersByCourse = `-- name: GetAllUsersByCourse :many
-SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id from users
+SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id from users
 WHERE course_id = $1
 `
 
@@ -116,6 +121,7 @@ func (q *Queries) GetAllUsersByCourse(ctx context.Context, courseID uuid.NullUUI
 			&i.FirstName,
 			&i.MiddleName,
 			&i.LastName,
+			&i.Email,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BlockID,
@@ -134,7 +140,7 @@ func (q *Queries) GetAllUsersByCourse(ctx context.Context, courseID uuid.NullUUI
 }
 
 const getUserByClearkID = `-- name: GetUserByClearkID :one
-SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id from users
+SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id from users
 WHERE clerk_id = $1 LIMIT 1
 `
 
@@ -148,6 +154,7 @@ func (q *Queries) GetUserByClearkID(ctx context.Context, clerkID string) (User, 
 		&i.FirstName,
 		&i.MiddleName,
 		&i.LastName,
+		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.BlockID,
@@ -156,7 +163,7 @@ func (q *Queries) GetUserByClearkID(ctx context.Context, clerkID string) (User, 
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id from users
+SELECT user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id from users
 WHERE user_id = $1 LIMIT 1
 `
 
@@ -170,6 +177,7 @@ func (q *Queries) GetUserByID(ctx context.Context, userID uuid.UUID) (User, erro
 		&i.FirstName,
 		&i.MiddleName,
 		&i.LastName,
+		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.BlockID,
@@ -184,10 +192,11 @@ SET
     first_name = COALESCE($2, first_name),
     middle_name = COALESCE($3, middle_name),
     last_name = COALESCE($4, last_name),
-    block_id = COALESCE($5, block_id),
+    email = COALESCE($5, email),
+    block_id = COALESCE($6, block_id),
     updated_at = now()
-WHERE clerk_id = $6
-RETURNING user_id, clerk_id, course_id, first_name, middle_name, last_name, created_at, updated_at, block_id
+WHERE clerk_id = $7
+RETURNING user_id, clerk_id, course_id, first_name, middle_name, last_name, email, created_at, updated_at, block_id
 `
 
 type UpdateUserParams struct {
@@ -195,6 +204,7 @@ type UpdateUserParams struct {
 	FirstName  sql.NullString
 	MiddleName sql.NullString
 	LastName   sql.NullString
+	Email      sql.NullString
 	BlockID    sql.NullString
 	ClerkID    string
 }
@@ -205,6 +215,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.FirstName,
 		arg.MiddleName,
 		arg.LastName,
+		arg.Email,
 		arg.BlockID,
 		arg.ClerkID,
 	)
@@ -216,6 +227,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.FirstName,
 		&i.MiddleName,
 		&i.LastName,
+		&i.Email,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.BlockID,

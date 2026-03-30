@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"visualds/internal/api"
+	"visualds/internal/database"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -31,13 +33,18 @@ func main() {
 	}
 	log.Println("DB Connection Established")
 
-	mux := http.NewServeMux()
-
-	server := http.Server{
-		Addr:    ":8080",
-		Handler: mux,
+	app := api.Server{
+		DB:   database.New(db),
+		Addr: ":8080",
 	}
 
-	log.Println("Starting Server at port ", server.Addr)
-	server.ListenAndServe()
+	httpServer := http.Server{
+		Addr:    app.Addr,
+		Handler: app.Routes(),
+	}
+
+	log.Println("Start listening at port", app.Addr)
+	if err := httpServer.ListenAndServe(); err != nil {
+		log.Fatal("Server failed to start:", err)
+	}
 }

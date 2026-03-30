@@ -34,9 +34,10 @@ type User struct {
 	UserID     uuid.UUID
 	ClerkID    string
 	CourseID   uuid.NullUUID
-	FirstName  sql.NullString
+	FirstName  string
 	MiddleName sql.NullString
-	LastName   sql.NullString
+	LastName   string
+	Email      string
 	CreatedAt  sql.NullTime
 	UpdatedAt  sql.NullTime
 	BlockID    sql.NullString

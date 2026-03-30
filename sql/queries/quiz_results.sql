@@ -7,12 +7,17 @@ RETURNING *;
 -- name: DeleteQuizResultEntry :one
 DELETE FROM quiz_results
 WHERE
-    user_id = (SELECT user_id FROM users WHERE clerk_id = $1)
+    user_id = $1
     AND quiz_id = $2
 RETURNING *;
 
 -- name: DeleteAllQuizResultEntry :many
 DELETE FROM quiz_results
 WHERE
-    user_id = (SELECT user_id FROM users WHERE clerk_id = $1)
+    user_id = $1
 RETURNING *;
+
+-- name: GetAllQuizResultEntry :many
+SELECT * FROM quiz_results
+WHERE
+    user_id = $1;

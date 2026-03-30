@@ -6,9 +6,10 @@ INSERT INTO users(
     first_name,
     middle_name,
     last_name,
+    email,
     block_id
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: UpdateUser :one
@@ -18,6 +19,7 @@ SET
     first_name = COALESCE(sqlc.narg('first_name'), first_name),
     middle_name = COALESCE(sqlc.narg('middle_name'), middle_name),
     last_name = COALESCE(sqlc.narg('last_name'), last_name),
+    email = COALESCE(sqlc.narg('email'), email),
     block_id = COALESCE(sqlc.narg('block_id'), block_id),
     updated_at = now()
 WHERE clerk_id = sqlc.arg('clerk_id')

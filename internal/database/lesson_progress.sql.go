@@ -7,24 +7,26 @@ package database
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const createLessonProgressEntry = `-- name: CreateLessonProgressEntry :one
 INSERT INTO lesson_progress(user_id, lesson_slug)
 VALUES (
-    (SELECT user_id FROM users WHERE clerk_id = $1),
+    $1,
     $2
 )
 RETURNING user_id, lesson_slug, completed_at
 `
 
 type CreateLessonProgressEntryParams struct {
-	ClerkID    string
+	UserID     uuid.UUID
 	LessonSlug string
 }
 
 func (q *Queries) CreateLessonProgressEntry(ctx context.Context, arg CreateLessonProgressEntryParams) (LessonProgress, error) {
-	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.ClerkID, arg.LessonSlug)
+	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.UserID, arg.LessonSlug)
 	var i LessonProgress
 	err := row.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt)
 	return i, err
@@ -33,19 +35,83 @@ func (q *Queries) CreateLessonProgressEntry(ctx context.Context, arg CreateLesso
 const deleteLessonProgress = `-- name: DeleteLessonProgress :one
 DELETE FROM lesson_progress
 WHERE
-    user_id = (SELECT user_id FROM users WHERE clerk_id = $1)
+    user_id = $1
     AND lesson_slug = $2
 RETURNING user_id, lesson_slug, completed_at
 `
 
 type DeleteLessonProgressParams struct {
-	ClerkID    string
+	UserID     uuid.UUID
 	LessonSlug string
 }
 
 func (q *Queries) DeleteLessonProgress(ctx context.Context, arg DeleteLessonProgressParams) (LessonProgress, error) {
-	row := q.db.QueryRowContext(ctx, deleteLessonProgress, arg.ClerkID, arg.LessonSlug)
+	row := q.db.QueryRowContext(ctx, deleteLessonProgress, arg.UserID, arg.LessonSlug)
 	var i LessonProgress
 	err := row.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt)
 	return i, err
+}
+
+const getAllLessonProgress = `-- name: GetAllLessonProgress :many
+SELECT user_id, lesson_slug, completed_at FROM lesson_progress
+WHERE
+    user_id = $1
+    AND lesson_slug = $2
+`
+
+type GetAllLessonProgressParams struct {
+	UserID     uuid.UUID
+	LessonSlug string
+}
+
+func (q *Queries) GetAllLessonProgress(ctx context.Context, arg GetAllLessonProgressParams) ([]LessonProgress, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLessonProgress, arg.UserID, arg.LessonSlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LessonProgress
+	for rows.Next() {
+		var i LessonProgress
+		if err := rows.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLessonProgress = `-- name: GetLessonProgress :many
+SELECT user_id, lesson_slug, completed_at FROM lesson_progress
+WHERE
+    user_id = $1
+`
+
+func (q *Queries) GetLessonProgress(ctx context.Context, userID uuid.UUID) ([]LessonProgress, error) {
+	rows, err := q.db.QueryContext(ctx, getLessonProgress, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LessonProgress
+	for rows.Next() {
+		var i LessonProgress
+		if err := rows.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
