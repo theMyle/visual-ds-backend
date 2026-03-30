@@ -19,6 +19,7 @@ func main() {
 	}
 
 	env := os.Getenv("ENV")
+	port := os.Getenv("PORT")
 
 	var logger slog.Handler
 	var DBurl string
@@ -35,6 +36,12 @@ func main() {
 		})
 	}
 
+	if len(port) > 0 {
+		port = ":" + port
+	} else {
+		port = ":8080"
+	}
+
 	db, err := sql.Open("postgres", DBurl)
 	if err != nil {
 		log.Fatal("Error connecting to DB: ", err)
@@ -49,7 +56,7 @@ func main() {
 	app := api.Server{
 		DB:     database.New(db),
 		Logger: slog.New(logger),
-		Addr:   ":8080",
+		Addr:   port,
 	}
 
 	httpServer := http.Server{

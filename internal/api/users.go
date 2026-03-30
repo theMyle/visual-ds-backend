@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -65,6 +66,9 @@ func ToUserResponse(u database.User) UserReponse {
 // Handlers
 
 func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	defer cancel()
+
 	var req createUserRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -78,7 +82,7 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert to DB
-	user, err := s.DB.CreateUser(r.Context(), database.CreateUserParams{
+	user, err := s.DB.CreateUser(ctx, database.CreateUserParams{
 		ClerkID:    req.ClerkID,
 		FirstName:  req.FirstName,
 		LastName:   req.LastName,
@@ -101,6 +105,9 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	defer cancel()
+
 	idString := r.PathValue("id")
 
 	id, err := uuid.Parse(idString)
@@ -112,7 +119,7 @@ func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 		s.CreateErrorResponseJSON(w, "Invalid user_id format", http.StatusBadRequest)
 	}
 
-	user, err := s.DB.GetUserByID(r.Context(), id)
+	user, err := s.DB.GetUserByID(ctx, id)
 	if err != nil {
 		s.Logger.Warn("user not found",
 			"error", err,
@@ -125,8 +132,12 @@ func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 	s.CreateJSONResponse(w, 200, res)
 }
 
+// TODO: stream instead of chugging list
 func (s *Server) GetAllUser(w http.ResponseWriter, r *http.Request) {
-	dbUser, err := s.DB.GetAllUsers(r.Context())
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+	defer cancel()
+
+	dbUser, err := s.DB.GetAllUsers(ctx)
 	if err != nil {
 		s.Logger.Error("error getting all user",
 			"error", err)
