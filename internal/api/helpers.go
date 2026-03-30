@@ -13,7 +13,7 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func CreateErrorResponseJSON(w http.ResponseWriter, msg string, code int) {
+func (s *Server) CreateErrorResponseJSON(w http.ResponseWriter, msg string, code int) {
 	response := ErrorResponse{
 		Error: msg,
 	}
@@ -23,6 +23,17 @@ func CreateErrorResponseJSON(w http.ResponseWriter, msg string, code int) {
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Println(err)
+	}
+}
+
+func (s *Server) CreateJSONResponse(w http.ResponseWriter, code int, content any) {
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(content); err != nil {
+		s.Logger.Error("error encoding json",
+			"error", err)
+		return
 	}
 }
 

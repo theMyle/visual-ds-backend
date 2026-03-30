@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"visualds/internal/api"
@@ -20,6 +21,7 @@ func main() {
 
 	// env variables setup
 	dbURL := os.Getenv("DB_URL_IPV4")
+	env := os.Getenv("ENV")
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -33,9 +35,23 @@ func main() {
 	}
 	log.Println("DB Connection Established")
 
+	// logger setup
+	var logger slog.Handler
+
+	if env == "production" {
+		logger = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+	} else {
+		logger = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+	}
+
 	app := api.Server{
-		DB:   database.New(db),
-		Addr: ":8080",
+		DB:     database.New(db),
+		Logger: slog.New(logger),
+		Addr:   ":8080",
 	}
 
 	httpServer := http.Server{

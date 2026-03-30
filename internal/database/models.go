@@ -17,9 +17,10 @@ type Course struct {
 }
 
 type LessonProgress struct {
-	UserID      uuid.UUID
-	LessonSlug  string
-	CompletedAt time.Time
+	UserID         uuid.UUID
+	LessonCategory string
+	LessonID       string
+	CompletedAt    time.Time
 }
 
 type QuizResult struct {

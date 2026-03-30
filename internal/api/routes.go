@@ -1,22 +1,46 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"visualds/internal/database"
 )
 
 type Server struct {
-	DB   *database.Queries
-	Addr string
+	DB     *database.Queries
+	Logger *slog.Logger
+	Addr   string
 }
 
 func (s *Server) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/users", s.CreateUser)
-	mux.HandleFunc("PUT /api/users/{id}", http.NotFound)
-	mux.HandleFunc("GET /api/users/{id}", http.NotFound)
-	mux.HandleFunc("GET /api/users", http.NotFound)
+	mux.HandleFunc("GET /api/users/{id}", s.GetUser)
+	mux.HandleFunc("GET /api/users", s.GetAllUser)
+
+	mux.Handle(
+		"GET /api/progress",
+		s.MockAuthMiddleware(
+			http.HandlerFunc(s.GetAllLessonProgress),
+		),
+	)
+	mux.Handle(
+		"POST /api/progress/{lesson_category}/{lesson_id}",
+		s.MockAuthMiddleware(
+			http.HandlerFunc(s.CreateLessonProgress),
+		),
+	)
+	// TODO: replace mock auth middleware with clerk
+
+	// mux.HandleFunc("POST /api/progress/{lesson_cagetory}/{lesson_id}", http.NotFound)
+	// mux.HandleFunc("GET /api/progress/{category}/{id}", http.NotFound)
+	// mux.HandleFunc("DELETE /api/progress", http.NotFound)
+	mux.HandleFunc("DELETE /api/progress/{category}/{id}", http.NotFound)
+
+	mux.HandleFunc("POST /api/quizzes/{id}", http.NotFound)
+	mux.HandleFunc("GET /api/quizzes/{id}", http.NotFound)
+	mux.HandleFunc("GET /api/quizzes", http.NotFound)
 
 	return mux
 }

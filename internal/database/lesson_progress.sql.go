@@ -12,60 +12,70 @@ import (
 )
 
 const createLessonProgressEntry = `-- name: CreateLessonProgressEntry :one
-INSERT INTO lesson_progress(user_id, lesson_slug)
-VALUES (
-    $1,
-    $2
-)
-RETURNING user_id, lesson_slug, completed_at
+INSERT INTO lesson_progress(user_id, lesson_category, lesson_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id, lesson_category, lesson_id) 
+DO UPDATE SET completed_at = now()
+RETURNING user_id, lesson_category, lesson_id, completed_at
 `
 
 type CreateLessonProgressEntryParams struct {
-	UserID     uuid.UUID
-	LessonSlug string
+	UserID         uuid.UUID
+	LessonCategory string
+	LessonID       string
 }
 
 func (q *Queries) CreateLessonProgressEntry(ctx context.Context, arg CreateLessonProgressEntryParams) (LessonProgress, error) {
-	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.UserID, arg.LessonSlug)
+	row := q.db.QueryRowContext(ctx, createLessonProgressEntry, arg.UserID, arg.LessonCategory, arg.LessonID)
 	var i LessonProgress
-	err := row.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt)
+	err := row.Scan(
+		&i.UserID,
+		&i.LessonCategory,
+		&i.LessonID,
+		&i.CompletedAt,
+	)
 	return i, err
 }
 
 const deleteLessonProgress = `-- name: DeleteLessonProgress :one
 DELETE FROM lesson_progress
-WHERE
-    user_id = $1
-    AND lesson_slug = $2
-RETURNING user_id, lesson_slug, completed_at
+WHERE user_id = $1 
+  AND lesson_category = $2
+  AND lesson_id = $3
+RETURNING user_id, lesson_category, lesson_id, completed_at
 `
 
 type DeleteLessonProgressParams struct {
-	UserID     uuid.UUID
-	LessonSlug string
+	UserID         uuid.UUID
+	LessonCategory string
+	LessonID       string
 }
 
 func (q *Queries) DeleteLessonProgress(ctx context.Context, arg DeleteLessonProgressParams) (LessonProgress, error) {
-	row := q.db.QueryRowContext(ctx, deleteLessonProgress, arg.UserID, arg.LessonSlug)
+	row := q.db.QueryRowContext(ctx, deleteLessonProgress, arg.UserID, arg.LessonCategory, arg.LessonID)
 	var i LessonProgress
-	err := row.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt)
+	err := row.Scan(
+		&i.UserID,
+		&i.LessonCategory,
+		&i.LessonID,
+		&i.CompletedAt,
+	)
 	return i, err
 }
 
-const getAllLessonProgress = `-- name: GetAllLessonProgress :many
-SELECT user_id, lesson_slug, completed_at FROM lesson_progress
-WHERE
-    user_id = $1
-    AND lesson_slug = $2
+const getAllLessonProgressByCategory = `-- name: GetAllLessonProgressByCategory :many
+SELECT user_id, lesson_category, lesson_id, completed_at FROM lesson_progress
+WHERE user_id = $1 
+  AND lesson_category = $2
 `
 
-type GetAllLessonProgressParams struct {
-	UserID     uuid.UUID
-	LessonSlug string
+type GetAllLessonProgressByCategoryParams struct {
+	UserID         uuid.UUID
+	LessonCategory string
 }
 
-func (q *Queries) GetAllLessonProgress(ctx context.Context, arg GetAllLessonProgressParams) ([]LessonProgress, error) {
-	rows, err := q.db.QueryContext(ctx, getAllLessonProgress, arg.UserID, arg.LessonSlug)
+func (q *Queries) GetAllLessonProgressByCategory(ctx context.Context, arg GetAllLessonProgressByCategoryParams) ([]LessonProgress, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLessonProgressByCategory, arg.UserID, arg.LessonCategory)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +83,12 @@ func (q *Queries) GetAllLessonProgress(ctx context.Context, arg GetAllLessonProg
 	var items []LessonProgress
 	for rows.Next() {
 		var i LessonProgress
-		if err := rows.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.LessonCategory,
+			&i.LessonID,
+			&i.CompletedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -87,14 +102,13 @@ func (q *Queries) GetAllLessonProgress(ctx context.Context, arg GetAllLessonProg
 	return items, nil
 }
 
-const getLessonProgress = `-- name: GetLessonProgress :many
-SELECT user_id, lesson_slug, completed_at FROM lesson_progress
-WHERE
-    user_id = $1
+const getAllLessonProgressByUser = `-- name: GetAllLessonProgressByUser :many
+SELECT user_id, lesson_category, lesson_id, completed_at FROM lesson_progress
+WHERE user_id = $1
 `
 
-func (q *Queries) GetLessonProgress(ctx context.Context, userID uuid.UUID) ([]LessonProgress, error) {
-	rows, err := q.db.QueryContext(ctx, getLessonProgress, userID)
+func (q *Queries) GetAllLessonProgressByUser(ctx context.Context, userID uuid.UUID) ([]LessonProgress, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLessonProgressByUser, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +116,12 @@ func (q *Queries) GetLessonProgress(ctx context.Context, userID uuid.UUID) ([]Le
 	var items []LessonProgress
 	for rows.Next() {
 		var i LessonProgress
-		if err := rows.Scan(&i.UserID, &i.LessonSlug, &i.CompletedAt); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.LessonCategory,
+			&i.LessonID,
+			&i.CompletedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -114,4 +133,29 @@ func (q *Queries) GetLessonProgress(ctx context.Context, userID uuid.UUID) ([]Le
 		return nil, err
 	}
 	return items, nil
+}
+
+const getLessonProgressByID = `-- name: GetLessonProgressByID :one
+SELECT user_id, lesson_category, lesson_id, completed_at FROM lesson_progress
+WHERE user_id = $1 
+  AND lesson_category = $2
+  AND lesson_id = $3
+`
+
+type GetLessonProgressByIDParams struct {
+	UserID         uuid.UUID
+	LessonCategory string
+	LessonID       string
+}
+
+func (q *Queries) GetLessonProgressByID(ctx context.Context, arg GetLessonProgressByIDParams) (LessonProgress, error) {
+	row := q.db.QueryRowContext(ctx, getLessonProgressByID, arg.UserID, arg.LessonCategory, arg.LessonID)
+	var i LessonProgress
+	err := row.Scan(
+		&i.UserID,
+		&i.LessonCategory,
+		&i.LessonID,
+		&i.CompletedAt,
+	)
+	return i, err
 }
