@@ -18,6 +18,7 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /healthz",
 		func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
+			w.Write([]byte("Visualds backend is live!"))
 		})
 
 	mux.HandleFunc("POST /api/users", s.CreateUser)
