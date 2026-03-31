@@ -12,6 +12,15 @@ WHERE user_id = $1
   AND lesson_id = $3
 RETURNING *;
 
+-- name: DeleteCategoryLessonProgress :exec
+DELETE FROM lesson_progress
+WHERE user_id = $1
+  AND lesson_category = $2;
+
+-- name: DeleteAllLessonProgress :exec
+DELETE FROM lesson_progress
+WHERE user_id = $1;
+
 -- name: GetAllLessonProgressByCategory :many
 SELECT * FROM lesson_progress
 WHERE user_id = $1 

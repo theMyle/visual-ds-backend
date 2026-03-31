@@ -37,6 +37,32 @@ func (q *Queries) CreateLessonProgressEntry(ctx context.Context, arg CreateLesso
 	return i, err
 }
 
+const deleteAllLessonProgress = `-- name: DeleteAllLessonProgress :exec
+DELETE FROM lesson_progress
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteAllLessonProgress(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAllLessonProgress, userID)
+	return err
+}
+
+const deleteCategoryLessonProgress = `-- name: DeleteCategoryLessonProgress :exec
+DELETE FROM lesson_progress
+WHERE user_id = $1
+  AND lesson_category = $2
+`
+
+type DeleteCategoryLessonProgressParams struct {
+	UserID         uuid.UUID
+	LessonCategory string
+}
+
+func (q *Queries) DeleteCategoryLessonProgress(ctx context.Context, arg DeleteCategoryLessonProgressParams) error {
+	_, err := q.db.ExecContext(ctx, deleteCategoryLessonProgress, arg.UserID, arg.LessonCategory)
+	return err
+}
+
 const deleteLessonProgress = `-- name: DeleteLessonProgress :one
 DELETE FROM lesson_progress
 WHERE user_id = $1 
