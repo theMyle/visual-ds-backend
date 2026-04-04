@@ -24,11 +24,13 @@ type LessonProgress struct {
 }
 
 type QuizResult struct {
-	UserID     uuid.UUID
-	QuizID     string
-	Score      int32
-	TotalItems int32
-	TakenAt    time.Time
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	QuizCategory string
+	QuizID       string
+	Score        int32
+	TotalItems   int32
+	TakenAt      time.Time
 }
 
 type User struct {

@@ -1,0 +1,19 @@
+
+### create quiz result
+POST http://localhost:8080/api/quizzes/linked-list/q1 HTTP/1.1
+Content-Type: application/json
+
+{
+    "score": 99,
+    "total_items": 100
+}
+
+###
+
+POST http://localhost:8080/api/quizzes/linked-list/q3 HTTP/1.1
+Content-Type: application/json
+
+{
+    "score": 1,
+    "total_items": 20 
+}

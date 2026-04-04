@@ -7,9 +7,11 @@ import (
 )
 
 type Server struct {
-	DB     *database.Queries
-	Logger *slog.Logger
-	Addr   string
+	DB                 *database.Queries
+	Logger             *slog.Logger
+	Addr               string
+	ClerkWebhookSecret string
+	ClerkAPIKey        string
 }
 
 func (s *Server) Routes() *http.ServeMux {
@@ -25,11 +27,14 @@ func (s *Server) Routes() *http.ServeMux {
 			w.WriteHeader(200)
 			w.Write([]byte("Visualds backend is live!"))
 		})
-	mux.HandleFunc("POST /api/users", s.CreateUser)
-	mux.HandleFunc("GET /api/users", s.GetAllUser)
+
+	// Webhooks (no auth required - signature verification handles security)
+	mux.HandleFunc("POST /webhooks/clerk/user", s.HandleClerkUserWebhook)
+
+	// mux.HandleFunc("GET /api/users", s.GetAllUser) // TODO: this should be admin only
 
 	// users
-	protectedMux.Handle("GET /api/users/{id}",
+	protectedMux.Handle("GET /api/users/me",
 		s.MockAuthMiddleware(http.HandlerFunc(s.GetUser)))
 
 	// progress
@@ -42,11 +47,14 @@ func (s *Server) Routes() *http.ServeMux {
 
 	// quiz
 	// TODO: implement routes
-	mux.HandleFunc("POST /api/quizzes/{category}/{id}", http.NotFound)
-	mux.HandleFunc("DELETE /api/quizzes/{category}/{id}", http.NotFound)
-	mux.HandleFunc("DELETE /api/quizzes/{category}", http.NotFound)
+	protectedMux.HandleFunc("POST /quizzes/{category}/{id}", s.CreateQuizResult)
+
 	mux.HandleFunc("GET /api/quizzes/{category}/{id}", http.NotFound)
 	mux.HandleFunc("GET /api/quizzes/{category}", http.NotFound)
+	mux.HandleFunc("GET /api/quizzes", http.NotFound)
+
+	// protectedMux.HandleFunc("DELETE /api/quizzes/{category}/{id}", http.NotFound)
+	// mux.HandleFunc("DELETE /api/quizzes/{category}", http.NotFound)
 
 	return mux
 }

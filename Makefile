@@ -13,8 +13,9 @@ help:
 	@echo 	build-run 		- builds and run go project
 	@echo 	clean			- cleans build directory
 	@echo 	sqlc			- generate sql query go bindings
-	@echo 	up  			- run pending migrations
-	@echo 	down			- rollback the last migration
+	@echo 	migrate-up		- run pending migrations
+	@echo 	migrate-down    	- rollback the last migration
+	@echo 	migrate-reset   	- rollback the last migration
 	@echo 	status			- show which migrations have been applied
 
 # build go server
@@ -36,12 +37,16 @@ sqlc:
 	@sqlc generate
 
 # goose migration up by one
-up:
+migrate-up:
 	@goose postgres "$(DB_URL_IPV4)" -dir ./sql/schemas up
 
 # goose migration down by one
-down:
+migrate-down:
 	@goose postgres "$(DB_URL_IPV4)" -dir ./sql/schemas down
+
+# goose migration down by one
+migrate-reset:
+	@goose postgres "$(DB_URL_IPV4)" -dir ./sql/schemas reset
 
 # goose status
 status:

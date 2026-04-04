@@ -11,7 +11,7 @@ import (
 // TODO: integrate clerkjs
 func (s *Server) MockAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mockID := uuid.MustParse("0b7a92d2-c941-4629-a868-a64797ebdb5c")
+		mockID := uuid.MustParse("e7fb7fa9-1bfb-48a2-8b6f-a3c7dae30945")
 
 		// TODO: verify clerk token
 

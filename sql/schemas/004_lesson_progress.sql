@@ -6,7 +6,12 @@ CREATE TABLE lesson_progress(
     lesson_id TEXT NOT NULL,
     completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    PRIMARY KEY(user_id, lesson_category, lesson_id)
+    PRIMARY KEY(user_id, lesson_category, lesson_id),
+
+    CONSTRAINT fk_userid
+        FOREIGN KEY (user_id) 
+        REFERENCES users (user_id)
+        ON DELETE CASCADE
 );
 
 -- +goose Down

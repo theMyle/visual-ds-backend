@@ -1,0 +1,11 @@
+
+### create user
+POST http://localhost:8080/api/users HTTP/1.1
+Content-Type: application/json
+
+{
+    "clerk_id": "0b7a92d2-c941-4629-a868-a64797ebdb5c",
+    "first_name": "TEST",
+    "last_name": "TEST",
+    "email": "sample@gmail.com"
+}

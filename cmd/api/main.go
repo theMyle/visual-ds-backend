@@ -53,10 +53,20 @@ func main() {
 
 	log.Println("DB Connection Established")
 
+	// Load Clerk environment variables
+	clerkAPIKey := os.Getenv("CLERK_API_KEY")
+	clerkWebhookSecret := os.Getenv("CLERK_WEBHOOK_SECRET")
+
+	if clerkWebhookSecret == "" {
+		log.Println("WARNING: CLERK_WEBHOOK_SECRET not set; webhook signature verification will not work correctly")
+	}
+
 	app := api.Server{
-		DB:     database.New(db),
-		Logger: slog.New(logger),
-		Addr:   port,
+		DB:                database.New(db),
+		Logger:            slog.New(logger),
+		Addr:              port,
+		ClerkAPIKey:       clerkAPIKey,
+		ClerkWebhookSecret: clerkWebhookSecret,
 	}
 
 	httpServer := http.Server{

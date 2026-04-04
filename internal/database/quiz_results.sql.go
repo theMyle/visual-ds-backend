@@ -12,28 +12,32 @@ import (
 )
 
 const createQuizResultEntry = `-- name: CreateQuizResultEntry :one
-INSERT INTO quiz_results(user_id, quiz_id, score, total_items)
-VALUES($1, $2, $3, $4)
-RETURNING user_id, quiz_id, score, total_items, taken_at
+INSERT INTO quiz_results(user_id, quiz_category, quiz_id, score, total_items)
+VALUES($1, $2, $3, $4, $5)
+RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
 `
 
 type CreateQuizResultEntryParams struct {
-	UserID     uuid.UUID
-	QuizID     string
-	Score      int32
-	TotalItems int32
+	UserID       uuid.UUID
+	QuizCategory string
+	QuizID       string
+	Score        int32
+	TotalItems   int32
 }
 
 func (q *Queries) CreateQuizResultEntry(ctx context.Context, arg CreateQuizResultEntryParams) (QuizResult, error) {
 	row := q.db.QueryRowContext(ctx, createQuizResultEntry,
 		arg.UserID,
+		arg.QuizCategory,
 		arg.QuizID,
 		arg.Score,
 		arg.TotalItems,
 	)
 	var i QuizResult
 	err := row.Scan(
+		&i.ID,
 		&i.UserID,
+		&i.QuizCategory,
 		&i.QuizID,
 		&i.Score,
 		&i.TotalItems,
@@ -46,7 +50,7 @@ const deleteAllQuizResultEntry = `-- name: DeleteAllQuizResultEntry :many
 DELETE FROM quiz_results
 WHERE
     user_id = $1
-RETURNING user_id, quiz_id, score, total_items, taken_at
+RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
 `
 
 func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
@@ -59,7 +63,9 @@ func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID
 	for rows.Next() {
 		var i QuizResult
 		if err := rows.Scan(
+			&i.ID,
 			&i.UserID,
+			&i.QuizCategory,
 			&i.QuizID,
 			&i.Score,
 			&i.TotalItems,
@@ -83,7 +89,7 @@ DELETE FROM quiz_results
 WHERE
     user_id = $1
     AND quiz_id = $2
-RETURNING user_id, quiz_id, score, total_items, taken_at
+RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
 `
 
 type DeleteQuizResultEntryParams struct {
@@ -95,7 +101,9 @@ func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResul
 	row := q.db.QueryRowContext(ctx, deleteQuizResultEntry, arg.UserID, arg.QuizID)
 	var i QuizResult
 	err := row.Scan(
+		&i.ID,
 		&i.UserID,
+		&i.QuizCategory,
 		&i.QuizID,
 		&i.Score,
 		&i.TotalItems,
@@ -105,7 +113,7 @@ func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResul
 }
 
 const getAllQuizResultEntry = `-- name: GetAllQuizResultEntry :many
-SELECT user_id, quiz_id, score, total_items, taken_at FROM quiz_results
+SELECT id, user_id, quiz_category, quiz_id, score, total_items, taken_at FROM quiz_results
 WHERE
     user_id = $1
 `
@@ -120,7 +128,9 @@ func (q *Queries) GetAllQuizResultEntry(ctx context.Context, userID uuid.UUID) (
 	for rows.Next() {
 		var i QuizResult
 		if err := rows.Scan(
+			&i.ID,
 			&i.UserID,
+			&i.QuizCategory,
 			&i.QuizID,
 			&i.Score,
 			&i.TotalItems,

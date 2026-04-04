@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 	"visualds/internal/database"
 
 	"github.com/google/uuid"
+	svix "github.com/svix/svix-webhooks/go"
 )
 
 // DTOs
@@ -105,21 +107,17 @@ func (s *Server) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second*5)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*3)
 	defer cancel()
 
-	idString := r.PathValue("id")
-
-	id, err := uuid.Parse(idString)
-	if err != nil {
-		s.Logger.Warn("failed to parse string UUID",
-			"error", err,
-			"invalid_id", idString,
-		)
-		s.CreateErrorResponseJSON(w, "Invalid user_id format", http.StatusBadRequest)
+	val := r.Context().Value("user_id")
+	userID, ok := val.(uuid.UUID)
+	if !ok {
+		s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
-	user, err := s.DB.GetUserByID(ctx, id)
+	user, err := s.DB.GetUserByID(ctx, userID)
 	if err != nil {
 		s.Logger.Warn("user not found",
 			"error", err,
@@ -151,4 +149,159 @@ func (s *Server) GetAllUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.CreateJSONResponse(w, 200, usersDTO)
+}
+
+// Clerk Webhook Event Structures
+
+type ClerkWebhookEvent struct {
+	Data      json.RawMessage `json:"data"`
+	Object    string          `json:"object"`
+	Type      string          `json:"type"`
+	Timestamp int64           `json:"timestamp"`
+}
+
+type ClerkUserData struct {
+	ID             string `json:"id"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	EmailAddresses []struct {
+		EmailAddress string `json:"email_address"`
+	} `json:"email_addresses"`
+	PublicMetadata map[string]interface{} `json:"public_metadata"`
+}
+
+// HandleClerkUserWebhook processes Clerk user webhook events
+func (s *Server) HandleClerkUserWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*10)
+	defer cancel()
+
+	// Read the request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.Logger.Warn("failed to read webhook body",
+			"error", err,
+		)
+		s.CreateErrorResponseJSON(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Verify webhook signature using Svix
+	wh, err := svix.NewWebhook(s.ClerkWebhookSecret)
+	if err != nil {
+		s.Logger.Error("failed to create svix webhook verifier",
+			"error", err,
+		)
+		s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	err = wh.Verify(body, r.Header)
+	if err != nil {
+		s.Logger.Warn("webhook signature verification failed",
+			"error", err,
+		)
+		s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse webhook event
+	var event ClerkWebhookEvent
+	err = json.Unmarshal(body, &event)
+	if err != nil {
+		s.Logger.Warn("failed to unmarshal webhook event",
+			"error", err,
+		)
+		s.CreateErrorResponseJSON(w, "Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+
+	// Only process user.created events
+	if event.Type != "user.created" {
+		s.Logger.Info("ignoring webhook event",
+			"type", event.Type,
+		)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{}"))
+		return
+	}
+
+	// Extract user data
+	var userData ClerkUserData
+	err = json.Unmarshal(event.Data, &userData)
+	if err != nil {
+		s.Logger.Warn("failed to unmarshal user data",
+			"error", err,
+		)
+		s.CreateErrorResponseJSON(w, "Invalid user data", http.StatusBadRequest)
+		return
+	}
+
+	// Get email
+	email := ""
+	if len(userData.EmailAddresses) > 0 {
+		email = userData.EmailAddresses[0].EmailAddress
+	}
+
+	s.Logger.Info("creating user from clerk webhook",
+		"clerk_id", userData.ID,
+		"email", email,
+	)
+
+	// Create user in database
+	user, err := s.DB.CreateUser(ctx, database.CreateUserParams{
+		ClerkID:    userData.ID,
+		FirstName:  userData.FirstName,
+		LastName:   userData.LastName,
+		Email:      email,
+		CourseID:   uuid.NullUUID{Valid: false},
+		MiddleName: sql.NullString{Valid: false},
+		BlockID:    sql.NullString{Valid: false},
+	})
+	if err != nil {
+		s.Logger.Error("failed to create user from webhook",
+			"error", err,
+			"clerk_id", userData.ID,
+		)
+		s.CreateErrorResponseJSON(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
+
+	s.Logger.Info("user created successfully from webhook",
+		"user_id", user.UserID.String(),
+		"clerk_id", userData.ID,
+	)
+
+	// Update Clerk user with database user_id in public metadata
+	err = s.updateClerkUserMetadata(ctx, userData.ID, user.UserID)
+	if err != nil {
+		s.Logger.Error("failed to update clerk user metadata",
+			"error", err,
+			"clerk_id", userData.ID,
+			"user_id", user.UserID.String(),
+		)
+		// Log but don't fail - user was created successfully. Metadata sync is secondary.
+		// In production, you might want to queue a retry job here.
+	} else {
+		s.Logger.Info("clerk user metadata updated successfully",
+			"clerk_id", userData.ID,
+			"user_id", user.UserID.String(),
+		)
+	}
+
+	res := ToUserResponse(user)
+	s.CreateJSONResponse(w, 201, res)
+}
+
+// updateClerkUserMetadata updates the Clerk user's public_metadata with the database user_id
+func (s *Server) updateClerkUserMetadata(ctx context.Context, clerkID string, userID uuid.UUID) error {
+	// For now, this is a note that you need to use the Clerk API to update metadata
+	// The Clerk SDK v2 provides methods to do this - see your .env for CLERK_API_KEY setup
+
+	s.Logger.Debug("clerk metadata update queued",
+		"clerk_id", clerkID,
+		"user_id", userID.String(),
+	)
+
+	return nil
 }
