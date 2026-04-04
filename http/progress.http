@@ -7,6 +7,7 @@ POST http://localhost:8080/api/progress/sample_lesson_category/lesson_2 HTTP/1.1
 ### get all lesson progress
 GET http://localhost:8080/api/progress HTTP/1.1
 
+
 ### get one specific progress status
 GET http://localhost:8080/api/progress/sample_lesson_category/lesson_1 HTTP/1.1
 
