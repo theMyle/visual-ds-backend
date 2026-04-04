@@ -9,8 +9,6 @@ import (
 	"time"
 	"visualds/internal/database"
 
-	"github.com/clerk/clerk-sdk-go/v2"
-	"github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/google/uuid"
 	svix "github.com/svix/svix-webhooks/go"
 )
@@ -274,50 +272,6 @@ func (s *Server) HandleClerkUserWebhook(w http.ResponseWriter, r *http.Request) 
 		"clerk_id", userData.ID,
 	)
 
-	// Update Clerk user with database user_id in public metadata
-	err = s.updateClerkUserMetadata(ctx, userData.ID, user.UserID)
-	if err != nil {
-		s.Logger.Error("failed to update clerk user metadata",
-			"error", err,
-			"clerk_id", userData.ID,
-			"user_id", user.UserID.String(),
-		)
-		// Log but don't fail - user was created successfully. Metadata sync is secondary.
-	} else {
-		s.Logger.Info("clerk user metadata updated successfully",
-			"clerk_id", userData.ID,
-			"user_id", user.UserID.String(),
-		)
-	}
-
 	res := ToUserResponse(user)
 	s.CreateJSONResponse(w, 201, res)
-}
-
-func (s *Server) updateClerkUserMetadata(ctx context.Context, clerkID string, userID uuid.UUID) error {
-	clerk.SetKey(s.ClerkAPIKey)
-
-	// 1. Create the map and marshal it
-	metadataMap := map[string]string{
-		"db_id": userID.String(),
-	}
-	publicMetadataBytes, err := json.Marshal(metadataMap)
-	if err != nil {
-		return err
-	}
-
-	// 2. Convert to json.RawMessage
-	raw := json.RawMessage(publicMetadataBytes)
-
-	// 3. Update Clerk (passing the pointer &raw)
-	_, err = user.Update(ctx, clerkID, &user.UpdateParams{
-		PublicMetadata: &raw,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	s.Logger.Info("clerk metadata updated", "user_id", userID.String())
-	return nil
 }

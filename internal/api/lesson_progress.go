@@ -32,6 +32,8 @@ func ToLessonProgress(l database.LessonProgress) LessonProgressResponse {
 	}
 }
 
+// Helpers
+
 // Handlers
 
 func (s *Server) GetAllLessonProgress(w http.ResponseWriter, r *http.Request) {

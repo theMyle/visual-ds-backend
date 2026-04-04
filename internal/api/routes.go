@@ -18,10 +18,9 @@ type Server struct {
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
-	// AdminProtectedMux := http.NewServeMux()
 
 	// TODO: replace mock auth middleware with clerk
-	mux.Handle("/api/", s.MockAuthMiddleware(http.StripPrefix("/api", protectedMux)))
+	mux.Handle("/api/", s.AuthMiddleware(http.StripPrefix("/api", protectedMux)))
 
 	mux.HandleFunc("GET /healthz",
 		func(w http.ResponseWriter, r *http.Request) {
