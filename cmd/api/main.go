@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"visualds/internal/api"
 	"visualds/internal/database"
 
@@ -56,6 +57,17 @@ func main() {
 	// Load Clerk environment variables
 	clerkAPIKey := os.Getenv("CLERK_API_KEY")
 	clerkWebhookSecret := os.Getenv("CLERK_WEBHOOK_SECRET")
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+
+	allowedOrigins := map[string]bool{}
+	if allowedOriginsEnv != "" {
+		for _, origin := range strings.Split(allowedOriginsEnv, ",") {
+			trimmed := strings.TrimSpace(origin)
+			if trimmed != "" {
+				allowedOrigins[trimmed] = true
+			}
+		}
+	}
 
 	if clerkWebhookSecret == "" {
 		log.Println("WARNING: CLERK_WEBHOOK_SECRET not set; webhook signature verification will not work correctly")
@@ -67,6 +79,7 @@ func main() {
 		Addr:              port,
 		ClerkAPIKey:       clerkAPIKey,
 		ClerkWebhookSecret: clerkWebhookSecret,
+		AllowedOrigins:    allowedOrigins,
 	}
 
 	httpServer := http.Server{

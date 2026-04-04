@@ -12,9 +12,10 @@ type Server struct {
 	Addr               string
 	ClerkWebhookSecret string
 	ClerkAPIKey        string
+	AllowedOrigins     map[string]bool
 }
 
-func (s *Server) Routes() *http.ServeMux {
+func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
 	// AdminProtectedMux := http.NewServeMux()
@@ -56,5 +57,5 @@ func (s *Server) Routes() *http.ServeMux {
 	// protectedMux.HandleFunc("DELETE /api/quizzes/{category}/{id}", http.NotFound)
 	// mux.HandleFunc("DELETE /api/quizzes/{category}", http.NotFound)
 
-	return mux
+	return s.CORSMiddleware(mux)
 }
