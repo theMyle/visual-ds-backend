@@ -34,8 +34,7 @@ func (s *Server) Routes() http.Handler {
 	// mux.HandleFunc("GET /api/users", s.GetAllUser) // TODO: this should be admin only
 
 	// users
-	protectedMux.Handle("GET /api/users/me",
-		s.MockAuthMiddleware(http.HandlerFunc(s.GetUser)))
+	protectedMux.HandleFunc("GET /users/me", s.GetUser)
 
 	// progress
 	protectedMux.HandleFunc("GET /progress", s.GetAllLessonProgress)

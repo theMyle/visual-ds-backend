@@ -53,26 +53,47 @@ func (s *Server) MockAuthMiddleware(next http.Handler) http.Handler {
 
 func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1. Log the incoming request path for context
+		path := r.URL.Path
+
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			s.Logger.Warn("Auth failed: missing or malformed header",
+				"path", path,
+				"header_present", authHeader != "")
 			s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
+		// 2. Log JWT verification errors (Expired, Invalid Signature, etc.)
 		claims, err := jwt.Verify(r.Context(), &jwt.VerifyParams{
 			Token: token,
 		})
 		if err != nil {
+			s.Logger.Error("Auth failed: JWT verification error",
+				"path", path,
+				"error", err.Error())
 			s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
+		// 3. Log Database lookup errors (User exists in Clerk but not in your DB)
 		internalUserID, err := s.DB.GetUserByClearkID(r.Context(), claims.Subject)
 		if err != nil {
+			s.Logger.Warn("Auth failed: Clerk user not found in local database",
+				"path", path,
+				"clerk_id", claims.Subject,
+				"error", err.Error())
 			s.CreateErrorResponseJSON(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+
+		// 4. Success log (Optional - keep it 'Debug' or 'Info' for dev)
+		s.Logger.Info("Auth successful",
+			"path", path,
+			"internal_user_id", internalUserID.UserID)
 
 		ctx := context.WithValue(r.Context(), "user_id", internalUserID.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
