@@ -9,6 +9,8 @@ import (
 	"time"
 	"visualds/internal/database"
 
+	"github.com/clerk/clerk-sdk-go/v2"
+	"github.com/clerk/clerk-sdk-go/v2/user"
 	"github.com/google/uuid"
 	svix "github.com/svix/svix-webhooks/go"
 )
@@ -281,7 +283,6 @@ func (s *Server) HandleClerkUserWebhook(w http.ResponseWriter, r *http.Request) 
 			"user_id", user.UserID.String(),
 		)
 		// Log but don't fail - user was created successfully. Metadata sync is secondary.
-		// In production, you might want to queue a retry job here.
 	} else {
 		s.Logger.Info("clerk user metadata updated successfully",
 			"clerk_id", userData.ID,
@@ -293,15 +294,30 @@ func (s *Server) HandleClerkUserWebhook(w http.ResponseWriter, r *http.Request) 
 	s.CreateJSONResponse(w, 201, res)
 }
 
-// updateClerkUserMetadata updates the Clerk user's public_metadata with the database user_id
 func (s *Server) updateClerkUserMetadata(ctx context.Context, clerkID string, userID uuid.UUID) error {
-	// For now, this is a note that you need to use the Clerk API to update metadata
-	// The Clerk SDK v2 provides methods to do this - see your .env for CLERK_API_KEY setup
+	clerk.SetKey(s.ClerkAPIKey)
 
-	s.Logger.Debug("clerk metadata update queued",
-		"clerk_id", clerkID,
-		"user_id", userID.String(),
-	)
+	// 1. Create the map and marshal it
+	metadataMap := map[string]string{
+		"db_id": userID.String(),
+	}
+	publicMetadataBytes, err := json.Marshal(metadataMap)
+	if err != nil {
+		return err
+	}
 
+	// 2. Convert to json.RawMessage
+	raw := json.RawMessage(publicMetadataBytes)
+
+	// 3. Update Clerk (passing the pointer &raw)
+	_, err = user.Update(ctx, clerkID, &user.UpdateParams{
+		PublicMetadata: &raw,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	s.Logger.Info("clerk metadata updated", "user_id", userID.String())
 	return nil
 }
