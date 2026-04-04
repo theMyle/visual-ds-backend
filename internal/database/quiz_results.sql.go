@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -46,15 +47,49 @@ func (q *Queries) CreateQuizResultEntry(ctx context.Context, arg CreateQuizResul
 	return i, err
 }
 
-const deleteAllQuizResultEntry = `-- name: DeleteAllQuizResultEntry :many
+const deleteAllQuizResultEntry = `-- name: DeleteAllQuizResultEntry :exec
 DELETE FROM quiz_results
 WHERE
     user_id = $1
 RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
 `
 
-func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
-	rows, err := q.db.QueryContext(ctx, deleteAllQuizResultEntry, userID)
+func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteAllQuizResultEntry, userID)
+	return err
+}
+
+const deleteQuizResultEntry = `-- name: DeleteQuizResultEntry :exec
+DELETE FROM quiz_results
+WHERE
+    user_id = $1
+    AND quiz_id = $2
+RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
+`
+
+type DeleteQuizResultEntryParams struct {
+	UserID uuid.UUID
+	QuizID string
+}
+
+func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResultEntryParams) error {
+	_, err := q.db.ExecContext(ctx, deleteQuizResultEntry, arg.UserID, arg.QuizID)
+	return err
+}
+
+const getAllQuizResultEntryByCategory = `-- name: GetAllQuizResultEntryByCategory :many
+SELECT id, user_id, quiz_category, quiz_id, score, total_items, taken_at FROM quiz_results
+WHERE
+    user_id = $1 AND quiz_category = $2
+`
+
+type GetAllQuizResultEntryByCategoryParams struct {
+	UserID       uuid.UUID
+	QuizCategory string
+}
+
+func (q *Queries) GetAllQuizResultEntryByCategory(ctx context.Context, arg GetAllQuizResultEntryByCategoryParams) ([]QuizResult, error) {
+	rows, err := q.db.QueryContext(ctx, getAllQuizResultEntryByCategory, arg.UserID, arg.QuizCategory)
 	if err != nil {
 		return nil, err
 	}
@@ -84,42 +119,14 @@ func (q *Queries) DeleteAllQuizResultEntry(ctx context.Context, userID uuid.UUID
 	return items, nil
 }
 
-const deleteQuizResultEntry = `-- name: DeleteQuizResultEntry :one
-DELETE FROM quiz_results
-WHERE
-    user_id = $1
-    AND quiz_id = $2
-RETURNING id, user_id, quiz_category, quiz_id, score, total_items, taken_at
-`
-
-type DeleteQuizResultEntryParams struct {
-	UserID uuid.UUID
-	QuizID string
-}
-
-func (q *Queries) DeleteQuizResultEntry(ctx context.Context, arg DeleteQuizResultEntryParams) (QuizResult, error) {
-	row := q.db.QueryRowContext(ctx, deleteQuizResultEntry, arg.UserID, arg.QuizID)
-	var i QuizResult
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.QuizCategory,
-		&i.QuizID,
-		&i.Score,
-		&i.TotalItems,
-		&i.TakenAt,
-	)
-	return i, err
-}
-
-const getAllQuizResultEntry = `-- name: GetAllQuizResultEntry :many
+const getAllQuizResultEntryByUser = `-- name: GetAllQuizResultEntryByUser :many
 SELECT id, user_id, quiz_category, quiz_id, score, total_items, taken_at FROM quiz_results
 WHERE
     user_id = $1
 `
 
-func (q *Queries) GetAllQuizResultEntry(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
-	rows, err := q.db.QueryContext(ctx, getAllQuizResultEntry, userID)
+func (q *Queries) GetAllQuizResultEntryByUser(ctx context.Context, userID uuid.UUID) ([]QuizResult, error) {
+	rows, err := q.db.QueryContext(ctx, getAllQuizResultEntryByUser, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +142,111 @@ func (q *Queries) GetAllQuizResultEntry(ctx context.Context, userID uuid.UUID) (
 			&i.Score,
 			&i.TotalItems,
 			&i.TakenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQuizResultSummariesByUser = `-- name: GetQuizResultSummariesByUser :many
+WITH ranked AS (
+    SELECT
+        id,
+        quiz_category,
+        quiz_id,
+        score,
+        total_items,
+        taken_at,
+        ROW_NUMBER() OVER (
+            PARTITION BY quiz_category, quiz_id
+            ORDER BY score DESC, taken_at DESC, id DESC
+        ) AS highest_rank,
+        ROW_NUMBER() OVER (
+            PARTITION BY quiz_category, quiz_id
+            ORDER BY taken_at DESC, id DESC
+        ) AS most_recent_rank
+    FROM quiz_results
+    WHERE user_id = $1
+),
+highest AS (
+    SELECT
+        quiz_category,
+        quiz_id,
+        id,
+        score,
+        total_items,
+        taken_at
+    FROM ranked
+    WHERE highest_rank = 1
+),
+most_recent AS (
+    SELECT
+        quiz_category,
+        quiz_id,
+        id,
+        score,
+        total_items,
+        taken_at
+    FROM ranked
+    WHERE most_recent_rank = 1
+)
+SELECT
+    h.quiz_category,
+    h.quiz_id,
+    h.id AS highest_id,
+    h.score AS highest_score,
+    h.total_items AS highest_total_items,
+    h.taken_at AS highest_taken_at,
+    mr.id AS most_recent_id,
+    mr.score AS most_recent_score,
+    mr.total_items AS most_recent_total_items,
+    mr.taken_at AS most_recent_taken_at
+FROM highest h
+JOIN most_recent mr USING (quiz_category, quiz_id)
+ORDER BY h.quiz_category, h.quiz_id
+`
+
+type GetQuizResultSummariesByUserRow struct {
+	QuizCategory         string
+	QuizID               string
+	HighestID            uuid.UUID
+	HighestScore         int32
+	HighestTotalItems    int32
+	HighestTakenAt       time.Time
+	MostRecentID         uuid.UUID
+	MostRecentScore      int32
+	MostRecentTotalItems int32
+	MostRecentTakenAt    time.Time
+}
+
+func (q *Queries) GetQuizResultSummariesByUser(ctx context.Context, userID uuid.UUID) ([]GetQuizResultSummariesByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, getQuizResultSummariesByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetQuizResultSummariesByUserRow
+	for rows.Next() {
+		var i GetQuizResultSummariesByUserRow
+		if err := rows.Scan(
+			&i.QuizCategory,
+			&i.QuizID,
+			&i.HighestID,
+			&i.HighestScore,
+			&i.HighestTotalItems,
+			&i.HighestTakenAt,
+			&i.MostRecentID,
+			&i.MostRecentScore,
+			&i.MostRecentTotalItems,
+			&i.MostRecentTakenAt,
 		); err != nil {
 			return nil, err
 		}

@@ -46,12 +46,8 @@ func (s *Server) Routes() http.Handler {
 	protectedMux.HandleFunc("DELETE /progress/{category}/{id}", s.DeleteLessonProgress)
 
 	// quiz
-	// TODO: implement routes
+	protectedMux.HandleFunc("GET /quizzes", s.GetAllQuizResults)
 	protectedMux.HandleFunc("POST /quizzes/{category}/{id}", s.CreateQuizResult)
-
-	mux.HandleFunc("GET /api/quizzes/{category}/{id}", http.NotFound)
-	mux.HandleFunc("GET /api/quizzes/{category}", http.NotFound)
-	mux.HandleFunc("GET /api/quizzes", http.NotFound)
 
 	// protectedMux.HandleFunc("DELETE /api/quizzes/{category}/{id}", http.NotFound)
 	// mux.HandleFunc("DELETE /api/quizzes/{category}", http.NotFound)

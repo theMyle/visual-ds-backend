@@ -10,7 +10,6 @@ import (
 	"visualds/internal/api"
 	"visualds/internal/database"
 
-	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -59,8 +58,6 @@ func main() {
 	clerkAPIKey := os.Getenv("CLERK_API_KEY")
 	clerkWebhookSecret := os.Getenv("CLERK_WEBHOOK_SECRET")
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
-
-	clerk.SetKey(clerkAPIKey)
 
 	allowedOrigins := map[string]bool{}
 	if allowedOriginsEnv != "" {
