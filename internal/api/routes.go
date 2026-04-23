@@ -44,12 +44,12 @@ func (s *Server) Routes() http.Handler {
 	protectedMux.HandleFunc("DELETE /progress/{category}", s.DeleteCategoryLessonProgress)
 	protectedMux.HandleFunc("DELETE /progress/{category}/{id}", s.DeleteLessonProgress)
 
-	// quiz
-	protectedMux.HandleFunc("GET /quizzes", s.GetAllQuizResults)
-	protectedMux.HandleFunc("POST /quizzes/{category}/{id}", s.CreateQuizResult)
 
-	// protectedMux.HandleFunc("DELETE /api/quizzes/{category}/{id}", http.NotFound)
-	// mux.HandleFunc("DELETE /api/quizzes/{category}", http.NotFound)
+	// simulator progress
+	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)
+	protectedMux.HandleFunc("GET /simulator-progress/{category}", s.ListUserSimulatorProgressForCategory)
+	protectedMux.HandleFunc("GET /simulator-progress/{category}/{path}", s.GetSimulatorProgress)
+	protectedMux.HandleFunc("POST /simulator-progress/{category}", s.UpsertSimulatorProgress)
 
 	return s.CORSMiddleware(mux)
 }

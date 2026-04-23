@@ -63,7 +63,7 @@ func NullToUUID(nu uuid.NullUUID) *string {
 
 // convert *string to sql.NullString
 func StringToNull(s *string) sql.NullString {
-	if *s == "" || s == nil {
+	if s == nil || *s == "" {
 		return sql.NullString{Valid: false}
 	}
 
