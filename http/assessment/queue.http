@@ -1,0 +1,226 @@
+### Create Queue assessment
+POST http://localhost:8080/assessments
+Content-Type: application/json
+
+{
+  "id": "queue-1",
+  "category": "queue",
+  "questions": [
+    {
+      "text": "If you enqueue 'A', then 'B', then 'C', which item is currently at the Front of the queue?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! In a queue, the first item to enter stays at the front until it is specifically dequeued.",
+        "incorrect": "Think about a physical line. If 'A' was the first person to arrive, do they move to the back when 'B' and 'C' show up?"
+      },
+      "choices": [
+        {
+          "text": "Item A",
+          "is_correct": true
+        },
+        {
+          "text": "Item B",
+          "is_correct": false
+        },
+        {
+          "text": "Item C",
+          "is_correct": false
+        },
+        {
+          "text": "The queue is empty",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Why does a standard array-based queue suffer from performance issues during removal (dequeue)?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Precisely. Moving every item to fill the gap at index 0 is what slows the system down.",
+        "incorrect": "If you remove the first item in a simple list, what happens to the 'empty hole' at the start? How does the computer fix it?"
+      },
+      "choices": [
+        {
+          "text": "The array becomes too large to read",
+          "is_correct": false
+        },
+        {
+          "text": "Every remaining element must shift forward",
+          "is_correct": true
+        },
+        {
+          "text": "The Rear pointer cannot be found",
+          "is_correct": false
+        },
+        {
+          "text": "Arrays cannot store linear data",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the primary structural difference between a Queue and a Stack?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. A Stack is restricted to a single 'Top' point, while a Queue operates at both ends.",
+        "incorrect": "Consider how data enters and leaves. If a Stack is like a 'top-only' container, how does a Queue's 'open-ended' line differ?"
+      },
+      "choices": [
+        {
+          "text": "Queues follow LIFO logic",
+          "is_correct": false
+        },
+        {
+          "text": "Queues have two points of interaction (Front/Rear)",
+          "is_correct": true
+        },
+        {
+          "text": "Stacks follow FIFO logic",
+          "is_correct": false
+        },
+        {
+          "text": "Stacks use both Front and Rear pointers",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which implementation is best for a system where the total number of items is unknown and changes constantly?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. Linked lists add nodes as needed, making them highly dynamic.",
+        "incorrect": "If you don't know how big the line will get, do you want a pre-allocated block of memory or one that grows as needed?"
+      },
+      "choices": [
+        {
+          "text": "A fixed-size Circular Buffer",
+          "is_correct": false
+        },
+        {
+          "text": "A standard static Array",
+          "is_correct": false
+        },
+        {
+          "text": "A Linked List",
+          "is_correct": true
+        },
+        {
+          "text": "A LIFO Stack",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the logical result of the following sequence: Enqueue(X), Enqueue(Y), Dequeue(), Peek()?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Once X is dequeued, Y becomes the new Front.",
+        "incorrect": "Trace the steps: X enters, then Y. If you remove the first one (X), who is left at the front for you to peek at?"
+      },
+      "choices": [
+        {
+          "text": "X",
+          "is_correct": false
+        },
+        {
+          "text": "Y",
+          "is_correct": true
+        },
+        {
+          "text": "The queue is empty",
+          "is_correct": false
+        },
+        {
+          "text": "Error",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "How does a Circular Queue maintain efficiency without shifting elements?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Right. By 'wrapping' pointers back to the start, we reuse empty slots without moving data.",
+        "incorrect": "Think about a circular track. When the 'Tail' hits the end of the array, where can it go next if there is empty space?"
+      },
+      "choices": [
+        {
+          "text": "It deletes all previous data automatically",
+          "is_correct": false
+        },
+        {
+          "text": "It uses pointers that wrap around the array",
+          "is_correct": true
+        },
+        {
+          "text": "It converts the array into a stack",
+          "is_correct": false
+        },
+        {
+          "text": "It only allows one item at a time",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "In a Linked List queue implementation, why do we maintain a 'Tail' reference?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. Without a Tail pointer, you'd have to traverse the whole list to find the back.",
+        "incorrect": "If you want to add something to the very end of a chain immediately, do you want to start from the first link or have a direct handle on the last one?"
+      },
+      "choices": [
+        {
+          "text": "To make the Dequeue operation faster",
+          "is_correct": false
+        },
+        {
+          "text": "To enable Enqueue in constant time",
+          "is_correct": true
+        },
+        {
+          "text": "To check if the queue is empty",
+          "is_correct": false
+        },
+        {
+          "text": "To reverse the order of items",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which property is most vital for ensuring 'Fairness' in task processing?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct. FIFO ensures that wait time is respected and the oldest request is served first.",
+        "incorrect": "If you were waiting for a task to finish, would you prefer the most recent request to jump ahead of you?"
+      },
+      "choices": [
+        {
+          "text": "LIFO (Last-In, First-Out)",
+          "is_correct": false
+        },
+        {
+          "text": "Dynamic Resizing",
+          "is_correct": false
+        },
+        {
+          "text": "FIFO (First-In, First-Out)",
+          "is_correct": true
+        },
+        {
+          "text": "Random Access",
+          "is_correct": false
+        }
+      ]
+    }
+  ]
+}

@@ -44,6 +44,9 @@ func (s *Server) Routes() http.Handler {
 	protectedMux.HandleFunc("DELETE /progress/{category}", s.DeleteCategoryLessonProgress)
 	protectedMux.HandleFunc("DELETE /progress/{category}/{id}", s.DeleteLessonProgress)
 
+	// assessments
+	mux.HandleFunc("POST /assessments", s.CreateAssessment)
+	mux.HandleFunc("GET /assessments/{category}/{id}", s.GetAssessment)
 
 	// simulator progress
 	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)

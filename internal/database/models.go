@@ -11,6 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type Assessment struct {
+	ID       string
+	Category string
+}
+
+type Choice struct {
+	ID         string
+	QuestionID string
+	Text       string
+	IsCorrect  bool
+}
+
 type Course struct {
 	CourseID   uuid.UUID
 	CourseName string
@@ -21,6 +33,16 @@ type LessonProgress struct {
 	LessonCategory string
 	LessonID       string
 	CompletedAt    time.Time
+}
+
+type Question struct {
+	ID                string
+	AssessmentID      string
+	Text              string
+	ImageUrl          sql.NullString
+	Type              string
+	FeedbackCorrect   string
+	FeedbackIncorrect string
 }
 
 type QuizResult struct {

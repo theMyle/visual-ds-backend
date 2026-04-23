@@ -1,0 +1,280 @@
+## Create Linked List
+POST http://localhost:8080/assessments
+Content-Type: application/json
+
+{
+  "id": "linked-list-1",
+  "category": "linked-list",
+  "questions": [
+    {
+      "text": "Unlike arrays, which use contiguous memory, how are linked lists stored in memory?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Linked lists consist of nodes scattered in memory (the Heap) that link to each other.",
+        "incorrect": "Not quite. The 'linked' nature refers to non-contiguous blocks of memory connected by pointers."
+      },
+      "choices": [
+        {
+          "text": "Non-contiguously in separate blocks called nodes",
+          "is_correct": true
+        },
+        {
+          "text": "In a single pre-allocated stack frame",
+          "is_correct": false
+        },
+        {
+          "text": "Using indexed hardware registers",
+          "is_correct": false
+        },
+        {
+          "text": "Sequentially in the data segment",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which two parts typically make up a standard node in a singly linked list?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "That's right! Every node contains the actual value (Data) and a reference (Next) to the following node.",
+        "incorrect": "Remember, a node needs the information it holds and a way to find the next item in the sequence."
+      },
+      "choices": [
+        {
+          "text": "Index and Value",
+          "is_correct": false
+        },
+        {
+          "text": "Data and Next Pointer",
+          "is_correct": true
+        },
+        {
+          "text": "Head and Tail",
+          "is_correct": false
+        },
+        {
+          "text": "Previous and Next Pointer",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the primary function of the 'Head' property in a linked list?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. Without the Head reference, you have no way to access the start of the chain.",
+        "incorrect": "The Head is the necessary starting point for any operation that needs to access the list."
+      },
+      "choices": [
+        {
+          "text": "To keep track of the total number of elements",
+          "is_correct": false
+        },
+        {
+          "text": "To serve as the entry point for starting any traversal",
+          "is_correct": true
+        },
+        {
+          "text": "To point to the last node for quick appending",
+          "is_correct": false
+        },
+        {
+          "text": "To sort the data automatically",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the time complexity for accessing the 'Tail' if a tail reference is maintained?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Direct references allow for constant time O(1) access regardless of list size.",
+        "incorrect": "If you have a direct pointer to an item, you don't need to walk through the list to find it."
+      },
+      "choices": [
+        {
+          "text": "O(n)",
+          "is_correct": false
+        },
+        {
+          "text": "O(log n)",
+          "is_correct": false
+        },
+        {
+          "text": "O(1)",
+          "is_correct": true
+        },
+        {
+          "text": "O(n²)",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Why is inserting an element at the very beginning of a linked list O(1)?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Unlike arrays, you don't have to 'shift' any other elements to make room.",
+        "incorrect": "The efficiency comes from the fact that you only need to change two pointers to update the structure."
+      },
+      "choices": [
+        {
+          "text": "Because linked lists are always sorted",
+          "is_correct": false
+        },
+        {
+          "text": "Because it only requires updating the head pointer and the new node's next pointer",
+          "is_correct": true
+        },
+        {
+          "text": "Because the computer reserves the first memory slot",
+          "is_correct": false
+        },
+        {
+          "text": "Because it utilizes index-based access",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "In a singly linked list, why is deleting the LAST item O(n) even with a Tail pointer?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. You need to tell the second-to-last node to point to 'null', which requires traversal.",
+        "incorrect": "In a singly linked list, there are no 'back' pointers, so you must start from the Head to find the predecessor."
+      },
+      "choices": [
+        {
+          "text": "The memory must be cleared manually",
+          "is_correct": false
+        },
+        {
+          "text": "The Tail pointer is automatically deleted",
+          "is_correct": false
+        },
+        {
+          "text": "You must traverse to find the node BEFORE the tail to update its pointer",
+          "is_correct": true
+        },
+        {
+          "text": "The length must be recalculated from scratch",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the definition of 'Traversal' in a linked list?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Traversal is the foundation for searching, printing, or modifying the collection.",
+        "incorrect": "Traversal simply refers to the process of 'walking' through each node in the sequence."
+      },
+      "choices": [
+        {
+          "text": "The act of deleting every node",
+          "is_correct": false
+        },
+        {
+          "text": "The act of reversing the list",
+          "is_correct": false
+        },
+        {
+          "text": "Visiting every node in the list exactly once",
+          "is_correct": true
+        },
+        {
+          "text": "Converting the list into an array",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Accessing a node in the 'middle' of a singly linked list has a time complexity of:",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Right. Since there is no index-based access, you must follow pointers sequentially.",
+        "incorrect": "Linked lists lack random access; to reach the middle, you must pass every preceding node."
+      },
+      "choices": [
+        {
+          "text": "O(1)",
+          "is_correct": false
+        },
+        {
+          "text": "O(n)",
+          "is_correct": true
+        },
+        {
+          "text": "O(log n)",
+          "is_correct": false
+        },
+        {
+          "text": "O(1/2 n)",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which of the following is a key advantage of linked lists over arrays?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Linked lists shine when you need to add or remove items frequently from the ends.",
+        "incorrect": "Arrays require shifting all subsequent items during insertion; linked lists just swap pointers."
+      },
+      "choices": [
+        {
+          "text": "Faster random access",
+          "is_correct": false
+        },
+        {
+          "text": "Lower memory overhead",
+          "is_correct": false
+        },
+        {
+          "text": "Efficient insertions/deletions without shifting elements",
+          "is_correct": true
+        },
+        {
+          "text": "Contiguous memory allocation",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Is the 'Length' property required for a linked list to function?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. While optional, it's often kept as a counter to make size checks O(1).",
+        "incorrect": "You can find the length by walking the list, so an explicit property is a convenience, not a requirement."
+      },
+      "choices": [
+        {
+          "text": "Yes, traversal is impossible without it",
+          "is_correct": false
+        },
+        {
+          "text": "No, length can be determined by traversing to the end",
+          "is_correct": true
+        },
+        {
+          "text": "Yes, it determines max capacity",
+          "is_correct": false
+        },
+        {
+          "text": "No, linked lists are infinite",
+          "is_correct": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,280 @@
+### Create Stack assessment
+POST http://localhost:8080/assessments
+Content-Type: application/json
+
+{
+  "id": "stack-1",
+  "category": "stack",
+  "questions": [
+    {
+      "text": "Which principle best describes how a Stack manages data?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! The most recently added item is always the first one out.",
+        "incorrect": "Not quite. Think of a physical stack of heavy plates; which plate is the only one you can safely grab first?"
+      },
+      "choices": [
+        {
+          "text": "First-In, First-Out (FIFO)",
+          "is_correct": false
+        },
+        {
+          "text": "Last-In, First-Out (LIFO)",
+          "is_correct": true
+        },
+        {
+          "text": "Random Access",
+          "is_correct": false
+        },
+        {
+          "text": "Priority-Based Access",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the Big O time complexity for 'Push' and 'Pop' operations?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. Since you only touch the 'top,' the operation time remains constant regardless of stack size.",
+        "incorrect": "Consider this: Does adding an item to the top require you to look at or move any of the other items below it?"
+      },
+      "choices": [
+        {
+          "text": "O(n)",
+          "is_correct": false
+        },
+        {
+          "text": "O(1)",
+          "is_correct": true
+        },
+        {
+          "text": "O(log n)",
+          "is_correct": false
+        },
+        {
+          "text": "O(n²)",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which method is used to view the top element without removing it from the stack?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Yes! Peek (or Top) returns the value without modifying the stack.",
+        "incorrect": "One of these choices removes the item permanently, while the other just 'looks' at it. Which one sounds like just a glance?"
+      },
+      "choices": [
+        {
+          "text": "Pop()",
+          "is_correct": false
+        },
+        {
+          "text": "Peek()",
+          "is_correct": true
+        },
+        {
+          "text": "IsEmpty()",
+          "is_correct": false
+        },
+        {
+          "text": "Push()",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "To avoid a runtime error (like Underflow), which check should a developer perform before calling Pop()?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct. Always ensure there is at least one item in the stack before trying to remove something.",
+        "incorrect": "Underflow happens when you try to take something from nothing. What state should you check for to prevent that?"
+      },
+      "choices": [
+        {
+          "text": "Check if the stack is full",
+          "is_correct": false
+        },
+        {
+          "text": "Check if the stack isEmpty()",
+          "is_correct": true
+        },
+        {
+          "text": "Check the size of the array",
+          "is_correct": false
+        },
+        {
+          "text": "Perform a Peek() first",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "If a stack has 5 items and you need to access the very first item added (the bottom), what must happen?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct. Stacks do not allow random access; you must clear the 'top' to reach the 'bottom'.",
+        "incorrect": "Remember that a stack is a restricted structure. Can you 'legally' reach through the top items to get to the bottom?"
+      },
+      "choices": [
+        {
+          "text": "Use an index to access stack[0].",
+          "is_correct": false
+        },
+        {
+          "text": "Perform 4 'Pop' operations first.",
+          "is_correct": true
+        },
+        {
+          "text": "Use the 'Peek' operation with an offset.",
+          "is_correct": false
+        },
+        {
+          "text": "Stacks allow direct access to any item.",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the main advantage of using a Linked List to implement a stack?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Exactly. Linked lists grow node-by-node, so they never need to stop and copy data to a larger array.",
+        "incorrect": "Think about what happens to an array when it runs out of pre-allocated space. Does a Linked List have that same limitation?"
+      },
+      "choices": [
+        {
+          "text": "It uses less memory than an array.",
+          "is_correct": false
+        },
+        {
+          "text": "It allows for random access of elements.",
+          "is_correct": false
+        },
+        {
+          "text": "It provides dynamic scaling without 'resize' pauses.",
+          "is_correct": true
+        },
+        {
+          "text": "It is automatically sorted.",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "Which of these scenarios is the best use case for a Stack?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Spot on! Since 'Undo' reverses the most recent action, LIFO is the perfect fit.",
+        "incorrect": "Which of these needs to retrieve the 'most recent' thing that happened rather than the 'oldest' thing?"
+      },
+      "choices": [
+        {
+          "text": "A 'First-Come, First-Served' waiting list",
+          "is_correct": false
+        },
+        {
+          "text": "An 'Undo' button in a photo editor",
+          "is_correct": true
+        },
+        {
+          "text": "A digital directory for looking up names",
+          "is_correct": false
+        },
+        {
+          "text": "Streaming video data in real-time",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "When using an array-based stack with a fixed size, what is a 'Stack Overflow'?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Yes. When there is no more room in the underlying array, you cannot add more items.",
+        "incorrect": "The word 'Overflow' implies that the container can no longer hold what you are trying to put into it."
+      },
+      "choices": [
+        {
+          "text": "Trying to Pop from an empty stack.",
+          "is_correct": false
+        },
+        {
+          "text": "Trying to Push to a stack that is already full.",
+          "is_correct": true
+        },
+        {
+          "text": "The stack's memory address being too high.",
+          "is_correct": false
+        },
+        {
+          "text": "When the Peek operation returns a null value.",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "What is the primary trade-off when choosing a Linked List implementation over an Array?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Correct! Every node needs extra space to store the address of the next item.",
+        "incorrect": "Think about the 'nodes' in a Linked List. Besides the data itself, what else must each node store to stay connected?"
+      },
+      "choices": [
+        {
+          "text": "Linked lists are slower for Pushing.",
+          "is_correct": false
+        },
+        {
+          "text": "Linked lists use more memory because of pointers.",
+          "is_correct": true
+        },
+        {
+          "text": "Linked lists have a fixed capacity.",
+          "is_correct": false
+        },
+        {
+          "text": "Linked lists cannot perform the Peek operation.",
+          "is_correct": false
+        }
+      ]
+    },
+    {
+      "text": "If you perform these operations: Push(A), Push(B), Pop(), Push(C); what is now at the top of the stack?",
+      "image_url": null,
+      "type": "multiple_choice",
+      "feedback": {
+        "correct": "Well done! B was removed by the Pop(), leaving A at the bottom and C as the new Top.",
+        "incorrect": "Try sketching it out: add A, add B, remove the top-most item, then add C. What is the last thing you added?"
+      },
+      "choices": [
+        {
+          "text": "A",
+          "is_correct": false
+        },
+        {
+          "text": "B",
+          "is_correct": false
+        },
+        {
+          "text": "C",
+          "is_correct": true
+        },
+        {
+          "text": "The stack is empty",
+          "is_correct": false
+        }
+      ]
+    }
+  ]
+}
