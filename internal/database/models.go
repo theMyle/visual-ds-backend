@@ -45,6 +45,12 @@ type Question struct {
 	FeedbackIncorrect string
 }
 
+type QuestionStat struct {
+	QuestionID string
+	Correct    int32
+	Mistakes   int32
+}
+
 type QuizResult struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID

@@ -78,6 +78,7 @@ func main() {
 
 	app := api.Server{
 		DB:                 database.New(db),
+		DBRaw:              db,
 		Logger:             slog.New(logger),
 		Addr:               port,
 		ClerkAPIKey:        clerkAPIKey,

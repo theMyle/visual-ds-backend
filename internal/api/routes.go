@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"visualds/internal/database"
@@ -8,6 +9,7 @@ import (
 
 type Server struct {
 	DB                 *database.Queries
+	DBRaw              *sql.DB
 	Logger             *slog.Logger
 	Addr               string
 	ClerkWebhookSecret string
@@ -47,6 +49,7 @@ func (s *Server) Routes() http.Handler {
 	// assessments
 	mux.HandleFunc("POST /assessments", s.CreateAssessment)
 	mux.HandleFunc("GET /assessments/{category}/{id}", s.GetAssessment)
+	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 
 	// simulator progress
 	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)
