@@ -9,6 +9,11 @@ import (
 	"visualds/internal/database"
 )
 
+type AssessmentResponse struct {
+	ID       string `json:"id"`
+	Category string `json:"category"`
+}
+
 type ChoicePayload struct {
 	ID        string `json:"id"`
 	Text      string `json:"text"`
@@ -112,10 +117,10 @@ func (s *Server) CreateAssessment(w http.ResponseWriter, r *http.Request) {
 	// Insert Choices
 	if len(cIds) > 0 {
 		err = s.DB.BulkCreateChoices(r.Context(), database.BulkCreateChoicesParams{
-			Ids:          cIds,
-			QuestionIds:  cQuestionIds,
-			Texts:        cTexts,
-			IsCorrects:   cIsCorrects,
+			Ids:         cIds,
+			QuestionIds: cQuestionIds,
+			Texts:       cTexts,
+			IsCorrects:  cIsCorrects,
 		})
 		if err != nil {
 			s.Logger.Error("failed to create choices", "error", err)
@@ -249,5 +254,13 @@ func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusOK, assessments)
+	response := make([]AssessmentResponse, len(assessments))
+	for i, a := range assessments {
+		response[i] = AssessmentResponse{
+			ID:       a.ID,
+			Category: a.Category,
+		}
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, response)
 }
