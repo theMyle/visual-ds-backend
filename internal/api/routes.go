@@ -50,6 +50,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /assessments", s.CreateAssessment)
 	mux.HandleFunc("GET /assessments/{category}/{id}", s.GetAssessment)
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
+	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
 
 	// simulator progress
 	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)

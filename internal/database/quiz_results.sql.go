@@ -11,6 +11,49 @@ import (
 	"github.com/google/uuid"
 )
 
+const getQuizResultsByUser = `-- name: GetQuizResultsByUser :many
+SELECT id, user_id, quiz_category, quiz_id, score, total_items, taken_at FROM quiz_results
+WHERE user_id = $1
+ORDER BY taken_at DESC
+LIMIT $2
+`
+
+type GetQuizResultsByUserParams struct {
+	UserID uuid.UUID
+	Limit  int32
+}
+
+func (q *Queries) GetQuizResultsByUser(ctx context.Context, arg GetQuizResultsByUserParams) ([]QuizResult, error) {
+	rows, err := q.db.QueryContext(ctx, getQuizResultsByUser, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QuizResult
+	for rows.Next() {
+		var i QuizResult
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.QuizCategory,
+			&i.QuizID,
+			&i.Score,
+			&i.TotalItems,
+			&i.TakenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const saveQuizResult = `-- name: SaveQuizResult :one
 INSERT INTO quiz_results (
     user_id, quiz_category, quiz_id, score, total_items

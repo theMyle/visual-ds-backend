@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"visualds/internal/database"
 
 	"github.com/google/uuid"
@@ -95,4 +96,36 @@ func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.CreateJSONResponse(w, http.StatusCreated, result)
+}
+
+func (s *Server) GetQuizResults(w http.ResponseWriter, r *http.Request) {
+	// 1. Get user from context
+	val := r.Context().Value("user_id")
+	userID, ok := val.(uuid.UUID)
+	if !ok {
+		s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Parse limit from query params
+	limitStr := r.URL.Query().Get("limit")
+	limit := 10 // Sane default
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	// 3. Fetch from DB
+	results, err := s.DB.GetQuizResultsByUser(r.Context(), database.GetQuizResultsByUserParams{
+		UserID: userID,
+		Limit:  int32(limit),
+	})
+	if err != nil {
+		s.Logger.Error("failed to fetch quiz results", "error", err, "user_id", userID)
+		s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, results)
 }
