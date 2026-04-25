@@ -28,6 +28,12 @@ func (s *Server) Routes() http.Handler {
 	// TODO: replace mock auth middleware with clerk
 	mux.Handle("/api/", s.AuthMiddleware(http.StripPrefix("/api", protectedMux)))
 
+	// Health check
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 
 	// Webhooks (no auth required - signature verification handles security)
 	mux.HandleFunc("POST /webhooks/clerk/user", s.HandleClerkUserWebhook)
@@ -51,6 +57,11 @@ func (s *Server) Routes() http.Handler {
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
 
+	// simulators (Public)
+	mux.HandleFunc("GET /api/simulators", s.ListSimulators)
+	mux.HandleFunc("GET /api/simulators/curriculum", s.GetSimulatorCurriculum)
+	mux.HandleFunc("GET /api/simulators/{simulatorSlug}/challenges/{challengeSlug}", s.GetSimulatorChallenge)
+
 	// admin
 	adminMux.HandleFunc("GET /users", s.GetAllUser)
 	adminMux.HandleFunc("GET /assessments", s.ListAssessments)
@@ -61,6 +72,10 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("POST /assessments/{id}/questions", s.AddQuestion)
 	adminMux.HandleFunc("PUT /questions/{id}", s.UpdateQuestion)
 	adminMux.HandleFunc("DELETE /questions/{id}", s.DeleteQuestion)
+
+	// admin simulators
+	adminMux.HandleFunc("POST /simulators", s.CreateSimulator)
+	adminMux.HandleFunc("POST /simulators/{simulatorId}/challenges", s.CreateChallenge)
 
 	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.Logger.Warn("Admin sub-route not found", "path", r.URL.Path, "method", r.Method)

@@ -6,6 +6,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,6 +60,30 @@ type QuizResult struct {
 	Score        int32
 	TotalItems   int32
 	TakenAt      time.Time
+}
+
+type Simulator struct {
+	ID          string
+	Slug        string
+	Name        string
+	Description string
+	IsActive    bool
+	InitialCode string
+}
+
+type SimulatorChallenge struct {
+	ID               string
+	SimulatorID      string
+	Slug             string
+	Title            string
+	Description      string
+	OrderIndex       int32
+	InitialCode      sql.NullString
+	ProgramStructure json.RawMessage
+	TestCases        json.RawMessage
+	Capacity         json.RawMessage
+	NextChallengeID  sql.NullString
+	IsActive         bool
 }
 
 type SimulatorProgress struct {
