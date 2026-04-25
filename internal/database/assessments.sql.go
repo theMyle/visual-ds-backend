@@ -189,6 +189,24 @@ func (q *Queries) CreateQuestion(ctx context.Context, arg CreateQuestionParams) 
 	return i, err
 }
 
+const deleteAssessment = `-- name: DeleteAssessment :exec
+DELETE FROM assessments WHERE id = $1
+`
+
+func (q *Queries) DeleteAssessment(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteAssessment, id)
+	return err
+}
+
+const deleteQuestion = `-- name: DeleteQuestion :exec
+DELETE FROM questions WHERE id = $1
+`
+
+func (q *Queries) DeleteQuestion(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteQuestion, id)
+	return err
+}
+
 const getAssessment = `-- name: GetAssessment :one
 SELECT id, category FROM assessments WHERE category = $1 AND id = $2 LIMIT 1
 `
@@ -205,8 +223,19 @@ func (q *Queries) GetAssessment(ctx context.Context, arg GetAssessmentParams) (A
 	return i, err
 }
 
+const getAssessmentById = `-- name: GetAssessmentById :one
+SELECT id, category FROM assessments WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetAssessmentById(ctx context.Context, id string) (Assessment, error) {
+	row := q.db.QueryRowContext(ctx, getAssessmentById, id)
+	var i Assessment
+	err := row.Scan(&i.ID, &i.Category)
+	return i, err
+}
+
 const getChoicesByQuestionIds = `-- name: GetChoicesByQuestionIds :many
-SELECT id, question_id, text, is_correct FROM choices WHERE question_id = ANY($1::text[])
+SELECT id, question_id, text, is_correct FROM choices WHERE question_id = ANY($1::text[]) ORDER BY question_id, id ASC
 `
 
 func (q *Queries) GetChoicesByQuestionIds(ctx context.Context, questionIds []string) ([]Choice, error) {
@@ -238,7 +267,7 @@ func (q *Queries) GetChoicesByQuestionIds(ctx context.Context, questionIds []str
 }
 
 const getQuestionsByAssessmentId = `-- name: GetQuestionsByAssessmentId :many
-SELECT id, assessment_id, text, image_url, type, feedback_correct, feedback_incorrect FROM questions WHERE assessment_id = $1
+SELECT id, assessment_id, text, image_url, type, feedback_correct, feedback_incorrect FROM questions WHERE assessment_id = $1 ORDER BY id ASC
 `
 
 func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID string) ([]Question, error) {
@@ -273,7 +302,7 @@ func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID s
 }
 
 const listAssessments = `-- name: ListAssessments :many
-SELECT id, category FROM assessments LIMIT $1
+SELECT id, category FROM assessments ORDER BY category ASC, id ASC LIMIT $1
 `
 
 func (q *Queries) ListAssessments(ctx context.Context, limit int32) ([]Assessment, error) {
@@ -297,4 +326,20 @@ func (q *Queries) ListAssessments(ctx context.Context, limit int32) ([]Assessmen
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAssessment = `-- name: UpdateAssessment :one
+UPDATE assessments SET category = $2 WHERE id = $1 RETURNING id, category
+`
+
+type UpdateAssessmentParams struct {
+	ID       string
+	Category string
+}
+
+func (q *Queries) UpdateAssessment(ctx context.Context, arg UpdateAssessmentParams) (Assessment, error) {
+	row := q.db.QueryRowContext(ctx, updateAssessment, arg.ID, arg.Category)
+	var i Assessment
+	err := row.Scan(&i.ID, &i.Category)
+	return i, err
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
 	"github.com/google/uuid"
 )
@@ -96,6 +97,29 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 			"internal_user_id", internalUserID.UserID)
 
 		ctx := context.WithValue(r.Context(), "user_id", internalUserID.UserID)
+		ctx = context.WithValue(ctx, "clerk_claims", claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (s *Server) AdminOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.Logger.Info("AdminOnly hit", "path", r.URL.Path)
+		claims, ok := r.Context().Value("clerk_claims").(*clerk.SessionClaims)
+		if !ok {
+			s.Logger.Warn("Admin access denied: no claims in context")
+			s.CreateErrorResponseJSON(w, "Forbidden: Admin access required", http.StatusForbidden)
+			return
+		}
+
+		// Check for common admin role strings using Clerk's helper method
+		if !claims.HasRole("admin") && !claims.HasRole("org:admin") {
+			s.Logger.Warn("Admin access denied: insufficient permissions",
+				"user_id", claims.Subject)
+			s.CreateErrorResponseJSON(w, "Forbidden: Admin access required", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

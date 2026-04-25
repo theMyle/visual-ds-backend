@@ -135,19 +135,17 @@ func (s *Server) CreateAssessment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
-	category := r.PathValue("category")
 	id := r.PathValue("id")
 
-	if category == "" || id == "" {
-		s.CreateErrorResponseJSON(w, "category and id are required", http.StatusBadRequest)
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
 		return
 	}
 
-	// 1. Get Assessment
-	assessment, err := s.DB.GetAssessment(r.Context(), database.GetAssessmentParams{
-		Category: category,
-		ID:       id,
-	})
+	// 1. Get Assessment by ID only (we need a new query or modify existing)
+	// For now, let's look for any category since ID is primary key
+	// I'll update GetAssessment query to only use ID if category is not provided
+	assessment, err := s.DB.GetAssessmentById(r.Context(), id)
 	if err != nil {
 		s.CreateErrorResponseJSON(w, "assessment not found", http.StatusNotFound)
 		return
@@ -263,4 +261,74 @@ func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.CreateJSONResponse(w, http.StatusOK, response)
+}
+
+func (s *Server) DeleteAssessment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	s.Logger.Info("DeleteAssessment hit", "id", id)
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.DB.DeleteAssessment(r.Context(), id)
+	if err != nil {
+		s.Logger.Error("failed to delete assessment", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to delete assessment", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, map[string]string{
+		"message": "assessment deleted successfully",
+	})
+}
+
+func (s *Server) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		Category string `json:"category"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid json payload", http.StatusBadRequest)
+		return
+	}
+
+	assessment, err := s.DB.UpdateAssessment(r.Context(), database.UpdateAssessmentParams{
+		ID:       id,
+		Category: payload.Category,
+	})
+	if err != nil {
+		s.Logger.Error("failed to update assessment", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to update assessment", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, AssessmentResponse{
+		ID:       assessment.ID,
+		Category: assessment.Category,
+	})
+}
+
+func (s *Server) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.DB.DeleteQuestion(r.Context(), id)
+	if err != nil {
+		s.Logger.Error("failed to delete question", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to delete question", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, map[string]string{
+		"message": "question deleted successfully",
+	})
 }

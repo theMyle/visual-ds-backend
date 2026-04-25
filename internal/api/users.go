@@ -22,7 +22,7 @@ type createUserRequest struct {
 	Email     string `json:"email"`
 }
 
-type UserReponse struct {
+type UserResponse struct {
 	UserID     uuid.UUID `json:"user_id"`
 	ClerkID    string    `json:"clerk_id"`
 	FirstName  string    `json:"first_name"`
@@ -37,8 +37,8 @@ type UserReponse struct {
 
 // Mappers
 
-func ToUserResponse(u database.User) UserReponse {
-	res := UserReponse{
+func ToUserResponse(u database.User) UserResponse {
+	res := UserResponse{
 		UserID:    u.UserID,
 		ClerkID:   u.ClerkID,
 		FirstName: u.FirstName,
@@ -132,6 +132,7 @@ func (s *Server) GetUser(w http.ResponseWriter, r *http.Request) {
 
 // TODO: stream instead of chugging list
 func (s *Server) GetAllUser(w http.ResponseWriter, r *http.Request) {
+	s.Logger.Info("GetAllUser hit", "method", r.Method, "path", r.URL.Path)
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 	defer cancel()
 
@@ -143,7 +144,7 @@ func (s *Server) GetAllUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usersDTO := make([]UserReponse, len(dbUser))
+	usersDTO := make([]UserResponse, len(dbUser))
 	for i, u := range dbUser {
 		usersDTO[i] = ToUserResponse(u)
 	}

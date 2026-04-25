@@ -53,11 +53,23 @@ SELECT
 -- name: GetAssessment :one
 SELECT * FROM assessments WHERE category = $1 AND id = $2 LIMIT 1;
 
+-- name: GetAssessmentById :one
+SELECT * FROM assessments WHERE id = $1 LIMIT 1;
+
 -- name: GetQuestionsByAssessmentId :many
-SELECT * FROM questions WHERE assessment_id = $1;
+SELECT * FROM questions WHERE assessment_id = $1 ORDER BY id ASC;
 
 -- name: GetChoicesByQuestionIds :many
-SELECT * FROM choices WHERE question_id = ANY(@question_ids::text[]);
+SELECT * FROM choices WHERE question_id = ANY(@question_ids::text[]) ORDER BY question_id, id ASC;
 
 -- name: ListAssessments :many
-SELECT * FROM assessments LIMIT $1;
+SELECT * FROM assessments ORDER BY category ASC, id ASC LIMIT $1;
+
+-- name: DeleteAssessment :exec
+DELETE FROM assessments WHERE id = $1;
+
+-- name: UpdateAssessment :one
+UPDATE assessments SET category = $2 WHERE id = $1 RETURNING *;
+
+-- name: DeleteQuestion :exec
+DELETE FROM questions WHERE id = $1;

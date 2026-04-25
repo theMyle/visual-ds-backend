@@ -20,20 +20,18 @@ type Server struct {
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	protectedMux := http.NewServeMux()
+	adminMux := http.NewServeMux()
+
+	// Auth stack: Auth -> AdminOnly -> AdminMux
+	protectedMux.Handle("/admin/", s.AdminOnly(http.StripPrefix("/admin", adminMux)))
 
 	// TODO: replace mock auth middleware with clerk
 	mux.Handle("/api/", s.AuthMiddleware(http.StripPrefix("/api", protectedMux)))
 
-	mux.HandleFunc("GET /healthz",
-		func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(200)
-			w.Write([]byte("Visualds backend is live!"))
-		})
 
 	// Webhooks (no auth required - signature verification handles security)
 	mux.HandleFunc("POST /webhooks/clerk/user", s.HandleClerkUserWebhook)
 
-	// mux.HandleFunc("GET /api/users", s.GetAllUser) // TODO: this should be admin only
 
 	// users
 	protectedMux.HandleFunc("GET /users/me", s.GetUser)
@@ -48,10 +46,24 @@ func (s *Server) Routes() http.Handler {
 
 	// assessments
 	mux.HandleFunc("GET /assessments", s.ListAssessments)
-	mux.HandleFunc("POST /assessments", s.CreateAssessment)
 	mux.HandleFunc("GET /assessments/{category}/{id}", s.GetAssessment)
+	
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
+
+	// admin
+	adminMux.HandleFunc("GET /users", s.GetAllUser)
+	adminMux.HandleFunc("GET /assessments", s.ListAssessments)
+	adminMux.HandleFunc("POST /assessments", s.CreateAssessment)
+	adminMux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
+	adminMux.HandleFunc("PUT /assessments/{id}", s.UpdateAssessment)
+	adminMux.HandleFunc("DELETE /assessments/{id}", s.DeleteAssessment)
+	adminMux.HandleFunc("DELETE /questions/{id}", s.DeleteQuestion)
+
+	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		s.Logger.Warn("Admin sub-route not found", "path", r.URL.Path, "method", r.Method)
+		http.NotFound(w, r)
+	})
 
 	// simulator progress
 	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)

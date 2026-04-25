@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 	"visualds/internal/database"
 
 	"github.com/google/uuid"
@@ -20,6 +21,28 @@ type SubmitAssessmentRequest struct {
 	Score        int               `json:"score"`
 	TotalItems   int               `json:"total_items"`
 	Outcomes     []QuestionOutcome `json:"outcomes"`
+}
+
+type QuizResultResponse struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	QuizCategory string    `json:"quiz_category"`
+	QuizID       string    `json:"quiz_id"`
+	Score        int32     `json:"score"`
+	TotalItems   int32     `json:"total_items"`
+	TakenAt      time.Time `json:"taken_at"`
+}
+
+func ToQuizResultResponse(r database.QuizResult) QuizResultResponse {
+	return QuizResultResponse{
+		ID:           r.ID,
+		UserID:       r.UserID,
+		QuizCategory: r.QuizCategory,
+		QuizID:       r.QuizID,
+		Score:        r.Score,
+		TotalItems:   r.TotalItems,
+		TakenAt:      r.TakenAt,
+	}
 }
 
 func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +118,7 @@ func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusCreated, result)
+	s.CreateJSONResponse(w, http.StatusCreated, ToQuizResultResponse(result))
 }
 
 func (s *Server) GetQuizResults(w http.ResponseWriter, r *http.Request) {
@@ -127,5 +150,10 @@ func (s *Server) GetQuizResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusOK, results)
+	response := make([]QuizResultResponse, len(results))
+	for i, r := range results {
+		response[i] = ToQuizResultResponse(r)
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, response)
 }
