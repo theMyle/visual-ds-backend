@@ -198,6 +198,15 @@ func (q *Queries) DeleteAssessment(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteChoicesByQuestionId = `-- name: DeleteChoicesByQuestionId :exec
+DELETE FROM choices WHERE question_id = $1
+`
+
+func (q *Queries) DeleteChoicesByQuestionId(ctx context.Context, questionID string) error {
+	_, err := q.db.ExecContext(ctx, deleteChoicesByQuestionId, questionID)
+	return err
+}
+
 const deleteQuestion = `-- name: DeleteQuestion :exec
 DELETE FROM questions WHERE id = $1
 `
@@ -267,18 +276,34 @@ func (q *Queries) GetChoicesByQuestionIds(ctx context.Context, questionIds []str
 }
 
 const getQuestionsByAssessmentId = `-- name: GetQuestionsByAssessmentId :many
-SELECT id, assessment_id, text, image_url, type, feedback_correct, feedback_incorrect FROM questions WHERE assessment_id = $1 ORDER BY id ASC
+SELECT q.id, q.assessment_id, q.text, q.image_url, q.type, q.feedback_correct, q.feedback_incorrect, COALESCE(qs.correct, 0)::int as correct_count, COALESCE(qs.mistakes, 0)::int as mistake_count
+FROM questions q
+LEFT JOIN question_stats qs ON q.id = qs.question_id
+WHERE q.assessment_id = $1
+ORDER BY q.id ASC
 `
 
-func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID string) ([]Question, error) {
+type GetQuestionsByAssessmentIdRow struct {
+	ID                string
+	AssessmentID      string
+	Text              string
+	ImageUrl          sql.NullString
+	Type              string
+	FeedbackCorrect   string
+	FeedbackIncorrect string
+	CorrectCount      int32
+	MistakeCount      int32
+}
+
+func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID string) ([]GetQuestionsByAssessmentIdRow, error) {
 	rows, err := q.db.QueryContext(ctx, getQuestionsByAssessmentId, assessmentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Question
+	var items []GetQuestionsByAssessmentIdRow
 	for rows.Next() {
-		var i Question
+		var i GetQuestionsByAssessmentIdRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.AssessmentID,
@@ -287,6 +312,8 @@ func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID s
 			&i.Type,
 			&i.FeedbackCorrect,
 			&i.FeedbackIncorrect,
+			&i.CorrectCount,
+			&i.MistakeCount,
 		); err != nil {
 			return nil, err
 		}
@@ -341,5 +368,43 @@ func (q *Queries) UpdateAssessment(ctx context.Context, arg UpdateAssessmentPara
 	row := q.db.QueryRowContext(ctx, updateAssessment, arg.ID, arg.Category)
 	var i Assessment
 	err := row.Scan(&i.ID, &i.Category)
+	return i, err
+}
+
+const updateQuestion = `-- name: UpdateQuestion :one
+UPDATE questions
+SET text = $2, image_url = $3, type = $4, feedback_correct = $5, feedback_incorrect = $6
+WHERE id = $1
+RETURNING id, assessment_id, text, image_url, type, feedback_correct, feedback_incorrect
+`
+
+type UpdateQuestionParams struct {
+	ID                string
+	Text              string
+	ImageUrl          sql.NullString
+	Type              string
+	FeedbackCorrect   string
+	FeedbackIncorrect string
+}
+
+func (q *Queries) UpdateQuestion(ctx context.Context, arg UpdateQuestionParams) (Question, error) {
+	row := q.db.QueryRowContext(ctx, updateQuestion,
+		arg.ID,
+		arg.Text,
+		arg.ImageUrl,
+		arg.Type,
+		arg.FeedbackCorrect,
+		arg.FeedbackIncorrect,
+	)
+	var i Question
+	err := row.Scan(
+		&i.ID,
+		&i.AssessmentID,
+		&i.Text,
+		&i.ImageUrl,
+		&i.Type,
+		&i.FeedbackCorrect,
+		&i.FeedbackIncorrect,
+	)
 	return i, err
 }

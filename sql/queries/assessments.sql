@@ -57,7 +57,11 @@ SELECT * FROM assessments WHERE category = $1 AND id = $2 LIMIT 1;
 SELECT * FROM assessments WHERE id = $1 LIMIT 1;
 
 -- name: GetQuestionsByAssessmentId :many
-SELECT * FROM questions WHERE assessment_id = $1 ORDER BY id ASC;
+SELECT q.*, COALESCE(qs.correct, 0)::int as correct_count, COALESCE(qs.mistakes, 0)::int as mistake_count
+FROM questions q
+LEFT JOIN question_stats qs ON q.id = qs.question_id
+WHERE q.assessment_id = $1
+ORDER BY q.id ASC;
 
 -- name: GetChoicesByQuestionIds :many
 SELECT * FROM choices WHERE question_id = ANY(@question_ids::text[]) ORDER BY question_id, id ASC;
@@ -73,3 +77,12 @@ UPDATE assessments SET category = $2 WHERE id = $1 RETURNING *;
 
 -- name: DeleteQuestion :exec
 DELETE FROM questions WHERE id = $1;
+
+-- name: UpdateQuestion :one
+UPDATE questions
+SET text = $2, image_url = $3, type = $4, feedback_correct = $5, feedback_incorrect = $6
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteChoicesByQuestionId :exec
+DELETE FROM choices WHERE question_id = $1;

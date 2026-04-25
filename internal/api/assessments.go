@@ -14,6 +14,11 @@ type AssessmentResponse struct {
 	Category string `json:"category"`
 }
 
+type QuestionStatsPayload struct {
+	Correct  int32 `json:"correct"`
+	Mistakes int32 `json:"mistakes"`
+}
+
 type ChoicePayload struct {
 	ID        string `json:"id"`
 	Text      string `json:"text"`
@@ -26,12 +31,13 @@ type FeedbackPayload struct {
 }
 
 type QuestionPayload struct {
-	ID       string          `json:"id"`
-	Text     string          `json:"text"`
-	ImageURL *string         `json:"image_url,omitempty"`
-	Type     string          `json:"type"`
-	Choices  []ChoicePayload `json:"choices"`
-	Feedback FeedbackPayload `json:"feedback"`
+	ID       string               `json:"id"`
+	Text     string               `json:"text"`
+	ImageURL *string              `json:"image_url,omitempty"`
+	Type     string               `json:"type"`
+	Choices  []ChoicePayload      `json:"choices"`
+	Feedback FeedbackPayload      `json:"feedback"`
+	Stats    QuestionStatsPayload `json:"stats"`
 }
 
 type AssessmentPayload struct {
@@ -216,6 +222,10 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 				Incorrect: q.FeedbackIncorrect,
 			},
 			Choices: qChoices,
+			Stats: QuestionStatsPayload{
+				Correct:  q.CorrectCount,
+				Mistakes: q.MistakeCount,
+			},
 		})
 	}
 
@@ -330,5 +340,158 @@ func (s *Server) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
 
 	s.CreateJSONResponse(w, http.StatusOK, map[string]string{
 		"message": "question deleted successfully",
+	})
+}
+
+func (s *Server) AddQuestion(w http.ResponseWriter, r *http.Request) {
+	assessmentID := r.PathValue("id")
+	if assessmentID == "" {
+		s.CreateErrorResponseJSON(w, "assessment id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload QuestionPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid json payload", http.StatusBadRequest)
+		return
+	}
+
+	// Start transaction
+	tx, err := s.DBRaw.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.Logger.Error("failed to start transaction", "error", err)
+		s.CreateErrorResponseJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	qtx := s.DB.WithTx(tx)
+
+	// 1. Create Question
+	if payload.ID == "" {
+		payload.ID = uuid.New().String()
+	}
+
+	_, err = qtx.CreateQuestion(r.Context(), database.CreateQuestionParams{
+		ID:                payload.ID,
+		AssessmentID:      assessmentID,
+		Text:              payload.Text,
+		ImageUrl:          StringToNull(payload.ImageURL),
+		Type:              payload.Type,
+		FeedbackCorrect:   payload.Feedback.Correct,
+		FeedbackIncorrect: payload.Feedback.Incorrect,
+	})
+	if err != nil {
+		s.Logger.Error("failed to create question", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to create question", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Create Choices
+	for _, c := range payload.Choices {
+		if c.ID == "" {
+			c.ID = uuid.New().String()
+		}
+		_, err = qtx.CreateChoice(r.Context(), database.CreateChoiceParams{
+			ID:         c.ID,
+			QuestionID: payload.ID,
+			Text:       c.Text,
+			IsCorrect:  c.IsCorrect,
+		})
+		if err != nil {
+			s.Logger.Error("failed to create choice", "error", err)
+			s.CreateErrorResponseJSON(w, "failed to create choice", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		s.Logger.Error("failed to commit transaction", "error", err)
+		s.CreateErrorResponseJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusCreated, map[string]string{
+		"message": "question added successfully",
+		"id":      payload.ID,
+	})
+}
+
+func (s *Server) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
+	questionID := r.PathValue("id")
+	if questionID == "" {
+		s.CreateErrorResponseJSON(w, "question id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload QuestionPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid json payload", http.StatusBadRequest)
+		return
+	}
+
+	// Start transaction
+	tx, err := s.DBRaw.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.Logger.Error("failed to start transaction", "error", err)
+		s.CreateErrorResponseJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	qtx := s.DB.WithTx(tx)
+
+	// 1. Update Question
+	_, err = qtx.UpdateQuestion(r.Context(), database.UpdateQuestionParams{
+		ID:                questionID,
+		Text:              payload.Text,
+		ImageUrl:          StringToNull(payload.ImageURL),
+		Type:              payload.Type,
+		FeedbackCorrect:   payload.Feedback.Correct,
+		FeedbackIncorrect: payload.Feedback.Incorrect,
+	})
+	if err != nil {
+		s.Logger.Error("failed to update question", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to update question", http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Replace Choices
+	// Delete existing
+	err = qtx.DeleteChoicesByQuestionId(r.Context(), questionID)
+	if err != nil {
+		s.Logger.Error("failed to delete existing choices", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to update choices", http.StatusInternalServerError)
+		return
+	}
+
+	// Insert new
+	for _, c := range payload.Choices {
+		if c.ID == "" {
+			c.ID = uuid.New().String()
+		}
+		_, err = qtx.CreateChoice(r.Context(), database.CreateChoiceParams{
+			ID:         c.ID,
+			QuestionID: questionID,
+			Text:       c.Text,
+			IsCorrect:  c.IsCorrect,
+		})
+		if err != nil {
+			s.Logger.Error("failed to create choice", "error", err)
+			s.CreateErrorResponseJSON(w, "failed to create choices", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		s.Logger.Error("failed to commit transaction", "error", err)
+		s.CreateErrorResponseJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, map[string]string{
+		"message": "question updated successfully",
 	})
 }

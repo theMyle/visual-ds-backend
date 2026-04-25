@@ -46,7 +46,7 @@ func (s *Server) Routes() http.Handler {
 
 	// assessments
 	mux.HandleFunc("GET /assessments", s.ListAssessments)
-	mux.HandleFunc("GET /assessments/{category}/{id}", s.GetAssessment)
+	mux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
 	
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
@@ -58,6 +58,8 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
 	adminMux.HandleFunc("PUT /assessments/{id}", s.UpdateAssessment)
 	adminMux.HandleFunc("DELETE /assessments/{id}", s.DeleteAssessment)
+	adminMux.HandleFunc("POST /assessments/{id}/questions", s.AddQuestion)
+	adminMux.HandleFunc("PUT /questions/{id}", s.UpdateQuestion)
 	adminMux.HandleFunc("DELETE /questions/{id}", s.DeleteQuestion)
 
 	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
