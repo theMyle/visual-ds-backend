@@ -48,6 +48,49 @@ func (s *Server) ListSimulators(w http.ResponseWriter, r *http.Request) {
 	s.CreateJSONResponse(w, http.StatusOK, sims)
 }
 
+// ListSimulatorsAdmin returns simulators with their challenges for the admin dashboard.
+func (s *Server) ListSimulatorsAdmin(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.DB.GetSimulatorCurriculum(r.Context())
+	if err != nil {
+		s.Logger.Error("failed to get simulator curriculum for admin", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to load simulators", http.StatusInternalServerError)
+		return
+	}
+
+	simMap := make(map[string]*SimulatorCurriculumResponse)
+	var orderedSlugs []string
+
+	for _, row := range rows {
+		if _, ok := simMap[row.SimulatorSlug]; !ok {
+			simMap[row.SimulatorSlug] = &SimulatorCurriculumResponse{
+				ID:         row.SimulatorID,
+				Slug:       row.SimulatorSlug,
+				Name:       row.SimulatorName,
+				Challenges: []CurriculumChallenge{},
+			}
+			orderedSlugs = append(orderedSlugs, row.SimulatorSlug)
+		}
+
+		if row.ChallengeSlug.Valid {
+			simMap[row.SimulatorSlug].Challenges = append(simMap[row.SimulatorSlug].Challenges, CurriculumChallenge{
+				ID:         row.ChallengeID.String,
+				Slug:       row.ChallengeSlug.String,
+				Title:      row.ChallengeTitle.String,
+				OrderIndex: row.OrderIndex.Int32,
+				Path:       "/simulator/" + row.SimulatorSlug + "/" + row.ChallengeSlug.String,
+			})
+		}
+	}
+
+	response := make([]*SimulatorCurriculumResponse, 0, len(orderedSlugs))
+	for _, slug := range orderedSlugs {
+		response = append(response, simMap[slug])
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, response)
+}
+
+
 func (s *Server) GetSimulatorCurriculum(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.DB.GetSimulatorCurriculum(r.Context())
 	if err != nil {
