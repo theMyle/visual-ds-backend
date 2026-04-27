@@ -13,7 +13,7 @@ WHERE is_active = TRUE;
 
 -- name: UpdateSimulator :one
 UPDATE simulators
-SET name = $2, description = $3, initial_code = $4, is_active = $5
+SET name = $2, slug = $3, description = $4, initial_code = $5, is_active = $6
 WHERE id = $1
 RETURNING *;
 
@@ -53,6 +53,9 @@ SELECT
     s.id as simulator_id,
     s.slug as simulator_slug,
     s.name as simulator_name,
+    s.description as simulator_description,
+    s.initial_code as simulator_initial_code,
+    s.is_active as simulator_is_active,
     c.id as challenge_id,
     c.slug as challenge_slug,
     c.title as challenge_title,
@@ -60,6 +63,22 @@ SELECT
 FROM simulators s
 LEFT JOIN simulator_challenges c ON s.id = c.simulator_id
 WHERE s.is_active = TRUE AND (c.is_active = TRUE OR c.is_active IS NULL)
+ORDER BY s.name, c.order_index;
+
+-- name: GetSimulatorCurriculumAdmin :many
+SELECT 
+    s.id as simulator_id,
+    s.slug as simulator_slug,
+    s.name as simulator_name,
+    s.description as simulator_description,
+    s.initial_code as simulator_initial_code,
+    s.is_active as simulator_is_active,
+    c.id as challenge_id,
+    c.slug as challenge_slug,
+    c.title as challenge_title,
+    c.order_index
+FROM simulators s
+LEFT JOIN simulator_challenges c ON s.id = c.simulator_id
 ORDER BY s.name, c.order_index;
 
 -- name: DeleteSimulatorChallenges :exec

@@ -34,10 +34,8 @@ func (s *Server) Routes() http.Handler {
 		w.Write([]byte("OK"))
 	})
 
-
 	// Webhooks (no auth required - signature verification handles security)
 	mux.HandleFunc("POST /webhooks/clerk/user", s.HandleClerkUserWebhook)
-
 
 	// users
 	protectedMux.HandleFunc("GET /users/me", s.GetUser)
@@ -53,7 +51,7 @@ func (s *Server) Routes() http.Handler {
 	// assessments
 	mux.HandleFunc("GET /assessments", s.ListAssessments)
 	mux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
-	
+
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
 
@@ -76,6 +74,7 @@ func (s *Server) Routes() http.Handler {
 	// admin simulators
 	adminMux.HandleFunc("GET /simulators", s.ListSimulatorsAdmin)
 	adminMux.HandleFunc("POST /simulators", s.CreateSimulator)
+	adminMux.HandleFunc("PUT /simulators/{id}", s.UpdateSimulator)
 	adminMux.HandleFunc("POST /simulators/{simulatorId}/challenges", s.CreateChallenge)
 
 	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -212,6 +212,9 @@ SELECT
     s.id as simulator_id,
     s.slug as simulator_slug,
     s.name as simulator_name,
+    s.description as simulator_description,
+    s.initial_code as simulator_initial_code,
+    s.is_active as simulator_is_active,
     c.id as challenge_id,
     c.slug as challenge_slug,
     c.title as challenge_title,
@@ -223,13 +226,16 @@ ORDER BY s.name, c.order_index
 `
 
 type GetSimulatorCurriculumRow struct {
-	SimulatorID    string
-	SimulatorSlug  string
-	SimulatorName  string
-	ChallengeID    sql.NullString
-	ChallengeSlug  sql.NullString
-	ChallengeTitle sql.NullString
-	OrderIndex     sql.NullInt32
+	SimulatorID          string
+	SimulatorSlug        string
+	SimulatorName        string
+	SimulatorDescription string
+	SimulatorInitialCode string
+	SimulatorIsActive    bool
+	ChallengeID          sql.NullString
+	ChallengeSlug        sql.NullString
+	ChallengeTitle       sql.NullString
+	OrderIndex           sql.NullInt32
 }
 
 func (q *Queries) GetSimulatorCurriculum(ctx context.Context) ([]GetSimulatorCurriculumRow, error) {
@@ -245,6 +251,73 @@ func (q *Queries) GetSimulatorCurriculum(ctx context.Context) ([]GetSimulatorCur
 			&i.SimulatorID,
 			&i.SimulatorSlug,
 			&i.SimulatorName,
+			&i.SimulatorDescription,
+			&i.SimulatorInitialCode,
+			&i.SimulatorIsActive,
+			&i.ChallengeID,
+			&i.ChallengeSlug,
+			&i.ChallengeTitle,
+			&i.OrderIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSimulatorCurriculumAdmin = `-- name: GetSimulatorCurriculumAdmin :many
+SELECT 
+    s.id as simulator_id,
+    s.slug as simulator_slug,
+    s.name as simulator_name,
+    s.description as simulator_description,
+    s.initial_code as simulator_initial_code,
+    s.is_active as simulator_is_active,
+    c.id as challenge_id,
+    c.slug as challenge_slug,
+    c.title as challenge_title,
+    c.order_index
+FROM simulators s
+LEFT JOIN simulator_challenges c ON s.id = c.simulator_id
+ORDER BY s.name, c.order_index
+`
+
+type GetSimulatorCurriculumAdminRow struct {
+	SimulatorID          string
+	SimulatorSlug        string
+	SimulatorName        string
+	SimulatorDescription string
+	SimulatorInitialCode string
+	SimulatorIsActive    bool
+	ChallengeID          sql.NullString
+	ChallengeSlug        sql.NullString
+	ChallengeTitle       sql.NullString
+	OrderIndex           sql.NullInt32
+}
+
+func (q *Queries) GetSimulatorCurriculumAdmin(ctx context.Context) ([]GetSimulatorCurriculumAdminRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSimulatorCurriculumAdmin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSimulatorCurriculumAdminRow
+	for rows.Next() {
+		var i GetSimulatorCurriculumAdminRow
+		if err := rows.Scan(
+			&i.SimulatorID,
+			&i.SimulatorSlug,
+			&i.SimulatorName,
+			&i.SimulatorDescription,
+			&i.SimulatorInitialCode,
+			&i.SimulatorIsActive,
 			&i.ChallengeID,
 			&i.ChallengeSlug,
 			&i.ChallengeTitle,
@@ -342,7 +415,7 @@ func (q *Queries) ListSimulators(ctx context.Context) ([]Simulator, error) {
 
 const updateSimulator = `-- name: UpdateSimulator :one
 UPDATE simulators
-SET name = $2, description = $3, initial_code = $4, is_active = $5
+SET name = $2, slug = $3, description = $4, initial_code = $5, is_active = $6
 WHERE id = $1
 RETURNING id, slug, name, description, is_active, initial_code
 `
@@ -350,6 +423,7 @@ RETURNING id, slug, name, description, is_active, initial_code
 type UpdateSimulatorParams struct {
 	ID          string
 	Name        string
+	Slug        string
 	Description string
 	InitialCode string
 	IsActive    bool
@@ -359,6 +433,7 @@ func (q *Queries) UpdateSimulator(ctx context.Context, arg UpdateSimulatorParams
 	row := q.db.QueryRowContext(ctx, updateSimulator,
 		arg.ID,
 		arg.Name,
+		arg.Slug,
 		arg.Description,
 		arg.InitialCode,
 		arg.IsActive,

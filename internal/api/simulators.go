@@ -27,6 +27,9 @@ type SimulatorCurriculumResponse struct {
 	ID          string               `json:"id"`
 	Slug        string               `json:"slug"`
 	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	InitialCode string               `json:"initial_code"`
+	IsActive    bool                 `json:"is_active"`
 	Challenges  []CurriculumChallenge `json:"challenges"`
 }
 
@@ -50,7 +53,7 @@ func (s *Server) ListSimulators(w http.ResponseWriter, r *http.Request) {
 
 // ListSimulatorsAdmin returns simulators with their challenges for the admin dashboard.
 func (s *Server) ListSimulatorsAdmin(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.DB.GetSimulatorCurriculum(r.Context())
+	rows, err := s.DB.GetSimulatorCurriculumAdmin(r.Context())
 	if err != nil {
 		s.Logger.Error("failed to get simulator curriculum for admin", "error", err)
 		s.CreateErrorResponseJSON(w, "failed to load simulators", http.StatusInternalServerError)
@@ -63,10 +66,13 @@ func (s *Server) ListSimulatorsAdmin(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		if _, ok := simMap[row.SimulatorSlug]; !ok {
 			simMap[row.SimulatorSlug] = &SimulatorCurriculumResponse{
-				ID:         row.SimulatorID,
-				Slug:       row.SimulatorSlug,
-				Name:       row.SimulatorName,
-				Challenges: []CurriculumChallenge{},
+				ID:          row.SimulatorID,
+				Slug:        row.SimulatorSlug,
+				Name:        row.SimulatorName,
+				Description: row.SimulatorDescription,
+				InitialCode: row.SimulatorInitialCode,
+				IsActive:    row.SimulatorIsActive,
+				Challenges:  []CurriculumChallenge{},
 			}
 			orderedSlugs = append(orderedSlugs, row.SimulatorSlug)
 		}
@@ -106,10 +112,13 @@ func (s *Server) GetSimulatorCurriculum(w http.ResponseWriter, r *http.Request) 
 	for _, row := range rows {
 		if _, ok := simMap[row.SimulatorSlug]; !ok {
 			simMap[row.SimulatorSlug] = &SimulatorCurriculumResponse{
-				ID:         row.SimulatorID,
-				Slug:       row.SimulatorSlug,
-				Name:       row.SimulatorName,
-				Challenges: []CurriculumChallenge{},
+				ID:          row.SimulatorID,
+				Slug:        row.SimulatorSlug,
+				Name:        row.SimulatorName,
+				Description: row.SimulatorDescription,
+				InitialCode: row.SimulatorInitialCode,
+				IsActive:    row.SimulatorIsActive,
+				Challenges:  []CurriculumChallenge{},
 			}
 			orderedSlugs = append(orderedSlugs, row.SimulatorSlug)
 		}
@@ -273,4 +282,40 @@ func (s *Server) CreateChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.CreateJSONResponse(w, http.StatusCreated, challenge)
+}
+
+func (s *Server) UpdateSimulator(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		Slug        string `json:"slug"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		InitialCode string `json:"initial_code"`
+		IsActive    bool   `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	sim, err := s.DB.UpdateSimulator(r.Context(), database.UpdateSimulatorParams{
+		ID:          id,
+		Name:        payload.Name,
+		Slug:        payload.Slug,
+		Description: payload.Description,
+		InitialCode: payload.InitialCode,
+		IsActive:    payload.IsActive,
+	})
+	if err != nil {
+		s.Logger.Error("failed to update simulator", "error", err, "id", id)
+		s.CreateErrorResponseJSON(w, "failed to update simulator", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, sim)
 }
