@@ -21,6 +21,16 @@ type SimulatorChallengeResponse struct {
 	Capacity         json.RawMessage `json:"capacity"`
 	NextChallengeID  *string         `json:"next_challenge_id,omitempty"`
 	NextChallengeSlug *string        `json:"next_challenge_slug,omitempty"`
+	IsActive         bool            `json:"is_active"`
+}
+
+type SimulatorResponse struct {
+	ID          string `json:"id"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	InitialCode string `json:"initial_code"`
+	IsActive    bool   `json:"is_active"`
 }
 
 type SimulatorCurriculumResponse struct {
@@ -233,7 +243,16 @@ func (s *Server) CreateSimulator(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusCreated, sim)
+	resp := SimulatorResponse{
+		ID:          sim.ID,
+		Slug:        sim.Slug,
+		Name:        sim.Name,
+		Description: sim.Description,
+		InitialCode: sim.InitialCode,
+		IsActive:    sim.IsActive,
+	}
+
+	s.CreateJSONResponse(w, http.StatusCreated, resp)
 }
 
 func (s *Server) CreateChallenge(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +300,25 @@ func (s *Server) CreateChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusCreated, challenge)
+	resp := SimulatorChallengeResponse{
+		ID:               challenge.ID,
+		SimulatorID:      challenge.SimulatorID,
+		Slug:             challenge.Slug,
+		Title:            challenge.Title,
+		Description:      challenge.Description,
+		OrderIndex:       challenge.OrderIndex,
+		InitialCode:      challenge.InitialCode.String,
+		ProgramStructure: challenge.ProgramStructure,
+		TestCases:        challenge.TestCases,
+		Capacity:         challenge.Capacity,
+		IsActive:         challenge.IsActive,
+	}
+
+	if challenge.NextChallengeID.Valid {
+		resp.NextChallengeID = &challenge.NextChallengeID.String
+	}
+
+	s.CreateJSONResponse(w, http.StatusCreated, resp)
 }
 
 func (s *Server) UpdateSimulator(w http.ResponseWriter, r *http.Request) {
@@ -317,5 +354,130 @@ func (s *Server) UpdateSimulator(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusOK, sim)
+	resp := SimulatorResponse{
+		ID:          sim.ID,
+		Slug:        sim.Slug,
+		Name:        sim.Name,
+		Description: sim.Description,
+		InitialCode: sim.InitialCode,
+		IsActive:    sim.IsActive,
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, resp)
+}
+
+func (s *Server) GetChallengeAdmin(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	challenge, err := s.DB.GetChallengeByID(r.Context(), id)
+	if err != nil {
+		s.Logger.Error("failed to get challenge for admin", "error", err, "id", id)
+		s.CreateErrorResponseJSON(w, "challenge not found", http.StatusNotFound)
+		return
+	}
+
+	resp := SimulatorChallengeResponse{
+		ID:               challenge.ID,
+		SimulatorID:      challenge.SimulatorID,
+		Slug:             challenge.Slug,
+		Title:            challenge.Title,
+		Description:      challenge.Description,
+		OrderIndex:       challenge.OrderIndex,
+		InitialCode:      challenge.InitialCode.String,
+		ProgramStructure: challenge.ProgramStructure,
+		TestCases:        challenge.TestCases,
+		Capacity:         challenge.Capacity,
+		IsActive:         challenge.IsActive,
+	}
+
+	if challenge.NextChallengeID.Valid {
+		resp.NextChallengeID = &challenge.NextChallengeID.String
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, resp)
+}
+
+func (s *Server) UpdateChallenge(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		Slug             string          `json:"slug"`
+		Title            string          `json:"title"`
+		Description      string          `json:"description"`
+		OrderIndex       int32           `json:"order_index"`
+		InitialCode      *string         `json:"initial_code"`
+		ProgramStructure json.RawMessage `json:"program_structure"`
+		TestCases        json.RawMessage `json:"test_cases"`
+		Capacity         json.RawMessage `json:"capacity"`
+		NextChallengeID  *string         `json:"next_challenge_id"`
+		IsActive         bool            `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	challenge, err := s.DB.UpdateChallenge(r.Context(), database.UpdateChallengeParams{
+		ID:               id,
+		Slug:             payload.Slug,
+		Title:            payload.Title,
+		Description:      payload.Description,
+		OrderIndex:       payload.OrderIndex,
+		InitialCode:      StringToNull(payload.InitialCode),
+		ProgramStructure: payload.ProgramStructure,
+		TestCases:        payload.TestCases,
+		Capacity:         payload.Capacity,
+		NextChallengeID:  StringToNull(payload.NextChallengeID),
+		IsActive:         payload.IsActive,
+	})
+	if err != nil {
+		s.Logger.Error("failed to update challenge", "error", err, "id", id)
+		s.CreateErrorResponseJSON(w, "failed to update challenge", http.StatusInternalServerError)
+		return
+	}
+
+	resp := SimulatorChallengeResponse{
+		ID:               challenge.ID,
+		SimulatorID:      challenge.SimulatorID,
+		Slug:             challenge.Slug,
+		Title:            challenge.Title,
+		Description:      challenge.Description,
+		OrderIndex:       challenge.OrderIndex,
+		InitialCode:      challenge.InitialCode.String,
+		ProgramStructure: challenge.ProgramStructure,
+		TestCases:        challenge.TestCases,
+		Capacity:         challenge.Capacity,
+		IsActive:         challenge.IsActive,
+	}
+
+	if challenge.NextChallengeID.Valid {
+		resp.NextChallengeID = &challenge.NextChallengeID.String
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, resp)
+}
+
+func (s *Server) DeleteChallenge(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	err := s.DB.DeleteChallenge(r.Context(), id)
+	if err != nil {
+		s.Logger.Error("failed to delete challenge", "error", err, "id", id)
+		s.CreateErrorResponseJSON(w, "failed to delete challenge", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

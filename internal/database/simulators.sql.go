@@ -105,6 +105,16 @@ func (q *Queries) CreateSimulator(ctx context.Context, arg CreateSimulatorParams
 	return i, err
 }
 
+const deleteChallenge = `-- name: DeleteChallenge :exec
+DELETE FROM simulator_challenges
+WHERE id = $1
+`
+
+func (q *Queries) DeleteChallenge(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteChallenge, id)
+	return err
+}
+
 const deleteSimulatorChallenges = `-- name: DeleteSimulatorChallenges :exec
 DELETE FROM simulator_challenges
 WHERE simulator_id = $1
@@ -113,6 +123,31 @@ WHERE simulator_id = $1
 func (q *Queries) DeleteSimulatorChallenges(ctx context.Context, simulatorID string) error {
 	_, err := q.db.ExecContext(ctx, deleteSimulatorChallenges, simulatorID)
 	return err
+}
+
+const getChallengeByID = `-- name: GetChallengeByID :one
+SELECT id, simulator_id, slug, title, description, order_index, initial_code, program_structure, test_cases, capacity, next_challenge_id, is_active FROM simulator_challenges
+WHERE id = $1
+`
+
+func (q *Queries) GetChallengeByID(ctx context.Context, id string) (SimulatorChallenge, error) {
+	row := q.db.QueryRowContext(ctx, getChallengeByID, id)
+	var i SimulatorChallenge
+	err := row.Scan(
+		&i.ID,
+		&i.SimulatorID,
+		&i.Slug,
+		&i.Title,
+		&i.Description,
+		&i.OrderIndex,
+		&i.InitialCode,
+		&i.ProgramStructure,
+		&i.TestCases,
+		&i.Capacity,
+		&i.NextChallengeID,
+		&i.IsActive,
+	)
+	return i, err
 }
 
 const getChallengeBySlug = `-- name: GetChallengeBySlug :one
@@ -411,6 +446,69 @@ func (q *Queries) ListSimulators(ctx context.Context) ([]Simulator, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateChallenge = `-- name: UpdateChallenge :one
+UPDATE simulator_challenges
+SET 
+    slug = $2, 
+    title = $3, 
+    description = $4, 
+    order_index = $5, 
+    initial_code = $6, 
+    program_structure = $7, 
+    test_cases = $8, 
+    capacity = $9, 
+    next_challenge_id = $10, 
+    is_active = $11
+WHERE id = $1
+RETURNING id, simulator_id, slug, title, description, order_index, initial_code, program_structure, test_cases, capacity, next_challenge_id, is_active
+`
+
+type UpdateChallengeParams struct {
+	ID               string
+	Slug             string
+	Title            string
+	Description      string
+	OrderIndex       int32
+	InitialCode      sql.NullString
+	ProgramStructure json.RawMessage
+	TestCases        json.RawMessage
+	Capacity         json.RawMessage
+	NextChallengeID  sql.NullString
+	IsActive         bool
+}
+
+func (q *Queries) UpdateChallenge(ctx context.Context, arg UpdateChallengeParams) (SimulatorChallenge, error) {
+	row := q.db.QueryRowContext(ctx, updateChallenge,
+		arg.ID,
+		arg.Slug,
+		arg.Title,
+		arg.Description,
+		arg.OrderIndex,
+		arg.InitialCode,
+		arg.ProgramStructure,
+		arg.TestCases,
+		arg.Capacity,
+		arg.NextChallengeID,
+		arg.IsActive,
+	)
+	var i SimulatorChallenge
+	err := row.Scan(
+		&i.ID,
+		&i.SimulatorID,
+		&i.Slug,
+		&i.Title,
+		&i.Description,
+		&i.OrderIndex,
+		&i.InitialCode,
+		&i.ProgramStructure,
+		&i.TestCases,
+		&i.Capacity,
+		&i.NextChallengeID,
+		&i.IsActive,
+	)
+	return i, err
 }
 
 const updateSimulator = `-- name: UpdateSimulator :one

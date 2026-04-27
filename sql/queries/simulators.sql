@@ -84,3 +84,27 @@ ORDER BY s.name, c.order_index;
 -- name: DeleteSimulatorChallenges :exec
 DELETE FROM simulator_challenges
 WHERE simulator_id = $1;
+
+-- name: GetChallengeByID :one
+SELECT * FROM simulator_challenges
+WHERE id = $1;
+
+-- name: UpdateChallenge :one
+UPDATE simulator_challenges
+SET 
+    slug = $2, 
+    title = $3, 
+    description = $4, 
+    order_index = $5, 
+    initial_code = $6, 
+    program_structure = $7, 
+    test_cases = $8, 
+    capacity = $9, 
+    next_challenge_id = $10, 
+    is_active = $11
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteChallenge :exec
+DELETE FROM simulator_challenges
+WHERE id = $1;
