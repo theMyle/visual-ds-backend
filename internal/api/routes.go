@@ -62,6 +62,7 @@ func (s *Server) Routes() http.Handler {
 
 	// admin
 	adminMux.HandleFunc("GET /users", s.GetAllUser)
+	adminMux.HandleFunc("GET /users/{id}/progress", s.GetUserProgress)
 	adminMux.HandleFunc("GET /assessments", s.ListAssessments)
 	adminMux.HandleFunc("POST /assessments", s.CreateAssessment)
 	adminMux.HandleFunc("GET /assessments/{id}", s.GetAssessment)

@@ -152,6 +152,71 @@ func (s *Server) GetAllUser(w http.ResponseWriter, r *http.Request) {
 	s.CreateJSONResponse(w, 200, usersDTO)
 }
 
+type UserLearningOutcomes struct {
+	LessonProgress    []LessonProgressResponse    `json:"lesson_progress"`
+	SimulatorProgress []SimulatorProgressResponse `json:"simulator_progress"`
+	QuizResults       []QuizResultResponse       `json:"quiz_results"`
+}
+
+func (s *Server) GetUserProgress(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
+	defer cancel()
+
+	idStr := r.PathValue("id")
+	userID, err := uuid.Parse(idStr)
+	if err != nil {
+		s.CreateErrorResponseJSON(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Fetch Lesson Progress
+	dbLessons, err := s.DB.GetAllLessonProgressByUser(ctx, userID)
+	if err != nil {
+		s.Logger.Error("failed to fetch lesson progress", "error", err, "user_id", userID)
+		s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	lessonProgress := make([]LessonProgressResponse, len(dbLessons))
+	for i, l := range dbLessons {
+		lessonProgress[i] = ToLessonProgress(l)
+	}
+
+	// 2. Fetch Simulator Progress
+	dbSims, err := s.DB.ListUserSimulatorProgress(ctx, userID)
+	if err != nil {
+		s.Logger.Error("failed to fetch simulator progress", "error", err, "user_id", userID)
+		s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	simulatorProgress := make([]SimulatorProgressResponse, len(dbSims))
+	for i, s := range dbSims {
+		simulatorProgress[i] = ToSimulatorProgress(s)
+	}
+
+	// 3. Fetch Quiz Results
+	dbQuizzes, err := s.DB.GetQuizResultsByUser(ctx, database.GetQuizResultsByUserParams{
+		UserID: userID,
+		Limit:  100, // Fetch more for admin view
+	})
+	if err != nil {
+		s.Logger.Error("failed to fetch quiz results", "error", err, "user_id", userID)
+		s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	quizResults := make([]QuizResultResponse, len(dbQuizzes))
+	for i, q := range dbQuizzes {
+		quizResults[i] = ToQuizResultResponse(q)
+	}
+
+	res := UserLearningOutcomes{
+		LessonProgress:    lessonProgress,
+		SimulatorProgress: simulatorProgress,
+		QuizResults:       quizResults,
+	}
+
+	s.CreateJSONResponse(w, 200, res)
+}
+
 // Clerk Webhook Event Structures
 
 type ClerkWebhookEvent struct {
