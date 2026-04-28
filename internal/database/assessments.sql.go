@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
@@ -93,6 +94,21 @@ func (q *Queries) BulkCreateQuestions(ctx context.Context, arg BulkCreateQuestio
 		pq.Array(arg.FeedbacksCorrect),
 		pq.Array(arg.FeedbacksIncorrect),
 	)
+	return err
+}
+
+const clearSeenQuestions = `-- name: ClearSeenQuestions :exec
+DELETE FROM user_seen_questions
+WHERE user_id = $1 AND assessment_id = $2
+`
+
+type ClearSeenQuestionsParams struct {
+	UserID       uuid.UUID
+	AssessmentID string
+}
+
+func (q *Queries) ClearSeenQuestions(ctx context.Context, arg ClearSeenQuestionsParams) error {
+	_, err := q.db.ExecContext(ctx, clearSeenQuestions, arg.UserID, arg.AssessmentID)
 	return err
 }
 
@@ -328,6 +344,39 @@ func (q *Queries) GetQuestionsByAssessmentId(ctx context.Context, assessmentID s
 	return items, nil
 }
 
+const getSeenQuestionIds = `-- name: GetSeenQuestionIds :many
+SELECT question_id FROM user_seen_questions
+WHERE user_id = $1 AND assessment_id = $2
+`
+
+type GetSeenQuestionIdsParams struct {
+	UserID       uuid.UUID
+	AssessmentID string
+}
+
+func (q *Queries) GetSeenQuestionIds(ctx context.Context, arg GetSeenQuestionIdsParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getSeenQuestionIds, arg.UserID, arg.AssessmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var question_id string
+		if err := rows.Scan(&question_id); err != nil {
+			return nil, err
+		}
+		items = append(items, question_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAssessments = `-- name: ListAssessments :many
 SELECT id, category FROM assessments ORDER BY category ASC, id ASC LIMIT $1
 `
@@ -353,6 +402,23 @@ func (q *Queries) ListAssessments(ctx context.Context, limit int32) ([]Assessmen
 		return nil, err
 	}
 	return items, nil
+}
+
+const markQuestionAsSeen = `-- name: MarkQuestionAsSeen :exec
+INSERT INTO user_seen_questions (user_id, assessment_id, question_id)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
+`
+
+type MarkQuestionAsSeenParams struct {
+	UserID       uuid.UUID
+	AssessmentID string
+	QuestionID   string
+}
+
+func (q *Queries) MarkQuestionAsSeen(ctx context.Context, arg MarkQuestionAsSeenParams) error {
+	_, err := q.db.ExecContext(ctx, markQuestionAsSeen, arg.UserID, arg.AssessmentID, arg.QuestionID)
+	return err
 }
 
 const updateAssessment = `-- name: UpdateAssessment :one

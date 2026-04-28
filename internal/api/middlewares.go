@@ -102,6 +102,40 @@ func (s *Server) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Server) OptionalAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// No token provided, proceed without user_id
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		claims, err := jwt.Verify(r.Context(), &jwt.VerifyParams{
+			Token: token,
+		})
+		if err != nil {
+			// Invalid token provided, proceed without user_id
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		internalUserID, err := s.DB.GetUserByClearkID(r.Context(), claims.Subject)
+		if err != nil {
+			// User not found in DB, proceed without user_id
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		s.Logger.Info("Optional Auth successful", "user_id", internalUserID.UserID, "path", r.URL.Path)
+		ctx := context.WithValue(r.Context(), "user_id", internalUserID.UserID)
+		ctx = context.WithValue(ctx, "clerk_claims", claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func (s *Server) AdminOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Logger.Info("AdminOnly hit", "path", r.URL.Path)

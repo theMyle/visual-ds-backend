@@ -109,6 +109,18 @@ func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 			s.CreateErrorResponseJSON(w, "Failed to update stats", http.StatusInternalServerError)
 			return
 		}
+
+		s.Logger.Debug("Marking question as seen", "user_id", userID, "assessment_id", req.QuizID, "question_id", outcome.QuestionID)
+		err = qtx.MarkQuestionAsSeen(r.Context(), database.MarkQuestionAsSeenParams{
+			UserID:       userID,
+			AssessmentID: req.QuizID,
+			QuestionID:   outcome.QuestionID,
+		})
+		if err != nil {
+			s.Logger.Error("failed to mark question as seen", "question_id", outcome.QuestionID, "error", err)
+			s.CreateErrorResponseJSON(w, "Failed to record seen question", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// 6. Commit transaction

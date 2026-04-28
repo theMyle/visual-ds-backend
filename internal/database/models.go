@@ -106,3 +106,9 @@ type User struct {
 	UpdatedAt  sql.NullTime
 	BlockID    sql.NullString
 }
+
+type UserSeenQuestion struct {
+	UserID       uuid.UUID
+	AssessmentID string
+	QuestionID   string
+}

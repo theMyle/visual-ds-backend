@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math/rand"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -158,23 +159,86 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Get Questions
-	questions, err := s.DB.GetQuestionsByAssessmentId(r.Context(), assessment.ID)
+	allQuestions, err := s.DB.GetQuestionsByAssessmentId(r.Context(), assessment.ID)
 	if err != nil {
 		s.CreateErrorResponseJSON(w, "failed to get questions", http.StatusInternalServerError)
 		return
 	}
 
+	questions := allQuestions
+
 	limitStr := r.URL.Query().Get("limit")
+	limit := 10 // default limit
 	if limitStr != "" {
-		var limit int
+		var parsedLimit int
 		for _, c := range limitStr {
 			if c >= '0' && c <= '9' {
-				limit = limit*10 + int(c-'0')
+				parsedLimit = parsedLimit*10 + int(c-'0')
 			}
 		}
-		if limit > 0 && limit < len(questions) {
-			questions = questions[:limit]
+		if parsedLimit > 0 {
+			limit = parsedLimit
 		}
+	}
+
+	// 2.5 Filter out seen questions if user is authenticated
+	val := r.Context().Value("user_id")
+	if userID, ok := val.(uuid.UUID); ok {
+		s.Logger.Debug("Filtering questions for user", "user_id", userID)
+		seenIds, err := s.DB.GetSeenQuestionIds(r.Context(), database.GetSeenQuestionIdsParams{
+			UserID:       userID,
+			AssessmentID: assessment.ID,
+		})
+		if err == nil {
+			seenMap := make(map[string]bool)
+			for _, id := range seenIds {
+				seenMap[id] = true
+			}
+
+			var unseenQuestions []database.GetQuestionsByAssessmentIdRow
+			var seenQuestionsList []database.GetQuestionsByAssessmentIdRow
+
+			for _, q := range allQuestions {
+				if !seenMap[q.ID] {
+					unseenQuestions = append(unseenQuestions, q)
+				} else {
+					seenQuestionsList = append(seenQuestionsList, q)
+				}
+			}
+
+			questions = unseenQuestions
+			s.Logger.Debug("Filtered unseen questions", "count", len(questions), "user_id", userID)
+
+			// If remaining questions are fewer than the limit, reset the pool
+			if len(questions) < limit && len(allQuestions) > 0 {
+				s.Logger.Info("Resetting seen questions pool", "user_id", userID, "assessment_id", assessment.ID, "unseen_count", len(questions))
+				err = s.DB.ClearSeenQuestions(r.Context(), database.ClearSeenQuestionsParams{
+					UserID:       userID,
+					AssessmentID: assessment.ID,
+				})
+				if err != nil {
+					s.Logger.Error("failed to clear seen questions", "error", err)
+				} else {
+					// We need to pick questions from seenQuestionsList to fill the limit
+					// We should shuffle seenQuestionsList
+					rand.Shuffle(len(seenQuestionsList), func(i, j int) {
+						seenQuestionsList[i], seenQuestionsList[j] = seenQuestionsList[j], seenQuestionsList[i]
+					})
+
+					needed := limit - len(questions)
+					if needed > len(seenQuestionsList) {
+						needed = len(seenQuestionsList)
+					}
+					questions = append(questions, seenQuestionsList[:needed]...)
+				}
+			}
+		} else {
+			s.Logger.Warn("failed to get seen question ids", "error", err)
+		}
+	}
+
+	if limit > 0 && limit < len(questions) {
+		questions = questions[:limit]
 	}
 
 	// 3. Get all choices for these questions

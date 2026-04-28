@@ -86,3 +86,16 @@ RETURNING *;
 
 -- name: DeleteChoicesByQuestionId :exec
 DELETE FROM choices WHERE question_id = $1;
+
+-- name: MarkQuestionAsSeen :exec
+INSERT INTO user_seen_questions (user_id, assessment_id, question_id)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING;
+
+-- name: GetSeenQuestionIds :many
+SELECT question_id FROM user_seen_questions
+WHERE user_id = $1 AND assessment_id = $2;
+
+-- name: ClearSeenQuestions :exec
+DELETE FROM user_seen_questions
+WHERE user_id = $1 AND assessment_id = $2;

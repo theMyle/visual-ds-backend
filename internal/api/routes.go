@@ -50,7 +50,7 @@ func (s *Server) Routes() http.Handler {
 
 	// assessments
 	mux.HandleFunc("GET /assessments", s.ListAssessments)
-	mux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
+	mux.Handle("GET /assessments/{id}", s.OptionalAuthMiddleware(http.HandlerFunc(s.GetAssessment)))
 
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
