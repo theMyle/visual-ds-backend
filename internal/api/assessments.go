@@ -167,8 +167,17 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 
 	questions := allQuestions
 
+	isAdminRoute := false
+	if val, ok := r.Context().Value("is_admin_route").(bool); ok {
+		isAdminRoute = val
+	}
+
 	limitStr := r.URL.Query().Get("limit")
 	limit := 10 // default limit
+	if isAdminRoute {
+		limit = 0 // default to all for admin
+	}
+
 	if limitStr != "" {
 		var parsedLimit int
 		for _, c := range limitStr {
@@ -176,14 +185,13 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 				parsedLimit = parsedLimit*10 + int(c-'0')
 			}
 		}
-		if parsedLimit > 0 {
-			limit = parsedLimit
-		}
+		// Allow limit=0 to mean "all"
+		limit = parsedLimit
 	}
 
-	// 2.5 Filter out seen questions if user is authenticated
+	// 2.5 Filter out seen questions if user is authenticated AND it's not an admin route
 	val := r.Context().Value("user_id")
-	if userID, ok := val.(uuid.UUID); ok {
+	if userID, ok := val.(uuid.UUID); ok && !isAdminRoute {
 		s.Logger.Debug("Filtering questions for user", "user_id", userID)
 		seenIds, err := s.DB.GetSeenQuestionIds(r.Context(), database.GetSeenQuestionIdsParams{
 			UserID:       userID,
@@ -304,8 +312,16 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
+	isAdminRoute := false
+	if val, ok := r.Context().Value("is_admin_route").(bool); ok {
+		isAdminRoute = val
+	}
+
 	limitStr := r.URL.Query().Get("limit")
 	limit := int32(10) // default limit
+	if isAdminRoute {
+		limit = 1000 // default to high number for admin
+	}
 
 	if limitStr != "" {
 		// simple ascii conversion
@@ -315,7 +331,7 @@ func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
 				l = l*10 + int32(c-'0')
 			}
 		}
-		if l > 0 && l <= 100 {
+		if l > 0 {
 			limit = l
 		}
 	}

@@ -76,7 +76,7 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("GET /simulators", s.ListSimulatorsAdmin)
 	adminMux.HandleFunc("POST /simulators", s.CreateSimulator)
 	adminMux.HandleFunc("PUT /simulators/{id}", s.UpdateSimulator)
-	adminMux.HandleFunc("POST /simulators/{simulatorId}/challenges", s.CreateChallenge)
+	adminMux.HandleFunc("POST /challenges", s.CreateChallenge)
 	adminMux.HandleFunc("GET /challenges/{id}", s.GetChallengeAdmin)
 	adminMux.HandleFunc("PUT /challenges/{id}", s.UpdateChallenge)
 	adminMux.HandleFunc("DELETE /challenges/{id}", s.DeleteChallenge)

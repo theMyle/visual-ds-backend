@@ -154,6 +154,7 @@ func (s *Server) AdminOnly(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		ctx := context.WithValue(r.Context(), "is_admin_route", true)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
