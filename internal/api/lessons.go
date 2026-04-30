@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 	"visualds/internal/database"
 
@@ -42,14 +41,14 @@ type UpdateLessonRequest struct {
 }
 
 type LessonResponse struct {
-	LessonID    uuid.UUID `json:"lesson_id"`
-	CategoryID  uuid.UUID `json:"category_id"`
-	Slug        string    `json:"slug"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	OrderIndex  int32     `json:"order_index"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	LessonID   uuid.UUID `json:"lesson_id"`
+	CategoryID uuid.UUID `json:"category_id"`
+	Slug       string    `json:"slug"`
+	Title      string    `json:"title"`
+	Content    string    `json:"content"`
+	OrderIndex int32     `json:"order_index"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type LessonCategoryResponse struct {
@@ -65,7 +64,7 @@ type LessonCategoryResponse struct {
 
 type CategoryWithLessonsResponse struct {
 	Category LessonCategoryResponse `json:"category"`
-	Lessons  []LessonResponse      `json:"lessons"`
+	Lessons  []LessonResponse       `json:"lessons"`
 }
 
 func ToLessonResponse(l database.Lesson) LessonResponse {
@@ -203,7 +202,7 @@ func (s *Server) GetLessonByID(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 	defer cancel()
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/sub-lessons/")
+	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		s.CreateErrorResponseJSON(w, "invalid lesson id", http.StatusBadRequest)

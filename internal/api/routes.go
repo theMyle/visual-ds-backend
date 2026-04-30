@@ -93,7 +93,7 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("PUT /lessons/{id}", s.UpdateLessonCategory)
 	adminMux.HandleFunc("DELETE /lessons/{id}", s.DeleteLessonCategory)
 	adminMux.HandleFunc("POST /sub-lessons", s.CreateLesson)
-	adminMux.HandleFunc("/sub-lessons/", s.GetLessonByID)
+	adminMux.HandleFunc("/sub-lessons/{id}", s.GetLessonByID)
 	adminMux.HandleFunc("PUT /sub-lessons/{id}", s.UpdateLesson)
 	adminMux.HandleFunc("DELETE /sub-lessons/{id}", s.DeleteLesson)
 
