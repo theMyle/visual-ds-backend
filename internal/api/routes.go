@@ -23,6 +23,7 @@ func (s *Server) Routes() http.Handler {
 	adminMux := http.NewServeMux()
 
 	// Auth stack: Auth -> AdminOnly -> AdminMux
+	protectedMux.Handle("/admin", s.AdminOnly(http.StripPrefix("/admin", adminMux)))
 	protectedMux.Handle("/admin/", s.AdminOnly(http.StripPrefix("/admin", adminMux)))
 
 	// TODO: replace mock auth middleware with clerk
@@ -39,6 +40,11 @@ func (s *Server) Routes() http.Handler {
 
 	// users
 	protectedMux.HandleFunc("GET /users/me", s.GetUser)
+
+	// lessons (Public)
+	mux.HandleFunc("GET /lessons", s.GetLessonCategories)
+	mux.HandleFunc("GET /lessons/{categorySlug}", s.GetLessonsByCategory)
+	mux.HandleFunc("GET /lessons/{categorySlug}/{lessonSlug}", s.GetLesson)
 
 	// progress
 	protectedMux.HandleFunc("GET /progress", s.GetAllLessonProgress)
@@ -80,6 +86,16 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("GET /challenges/{id}", s.GetChallengeAdmin)
 	adminMux.HandleFunc("PUT /challenges/{id}", s.UpdateChallenge)
 	adminMux.HandleFunc("DELETE /challenges/{id}", s.DeleteChallenge)
+
+	// admin lessons
+	adminMux.HandleFunc("/lessons", s.GetLessonCategories)
+	adminMux.HandleFunc("POST /lessons", s.CreateLessonCategory)
+	adminMux.HandleFunc("PUT /lessons/{id}", s.UpdateLessonCategory)
+	adminMux.HandleFunc("DELETE /lessons/{id}", s.DeleteLessonCategory)
+	adminMux.HandleFunc("POST /sub-lessons", s.CreateLesson)
+	adminMux.HandleFunc("/sub-lessons/", s.GetLessonByID)
+	adminMux.HandleFunc("PUT /sub-lessons/{id}", s.UpdateLesson)
+	adminMux.HandleFunc("DELETE /sub-lessons/{id}", s.DeleteLesson)
 
 	adminMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.Logger.Warn("Admin sub-route not found", "path", r.URL.Path, "method", r.Method)

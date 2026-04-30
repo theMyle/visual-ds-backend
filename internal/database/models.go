@@ -29,6 +29,27 @@ type Course struct {
 	CourseName string
 }
 
+type Lesson struct {
+	LessonID   uuid.UUID
+	CategoryID uuid.UUID
+	Slug       string
+	Title      string
+	Content    string
+	OrderIndex int32
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type LessonCategory struct {
+	CategoryID  uuid.UUID
+	Slug        string
+	Title       string
+	Description sql.NullString
+	OrderIndex  int32
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type LessonProgress struct {
 	UserID         uuid.UUID
 	LessonCategory string
