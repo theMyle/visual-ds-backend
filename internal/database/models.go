@@ -13,8 +13,9 @@ import (
 )
 
 type Assessment struct {
-	ID       string
-	Category string
+	ID          string
+	Category    string
+	MaxAttempts sql.NullInt32
 }
 
 type Choice struct {

@@ -5,6 +5,16 @@ INSERT INTO assessments (
     $1, $2
 ) RETURNING *;
 
+-- name: UpdateAssessmentMaxAttempts :one
+UPDATE assessments SET max_attempts = $2 WHERE id = $1 RETURNING *;
+
+-- name: GetAttemptCount :one
+SELECT COUNT(*)::int AS count FROM quiz_results
+WHERE user_id = $1 AND quiz_id = $2;
+
+-- name: ClearAttemptsForAssessment :exec
+DELETE FROM quiz_results WHERE quiz_id = $1;
+
 -- name: CreateQuestion :one
 INSERT INTO questions (
     id, assessment_id, text, image_url, type, feedback_correct, feedback_incorrect
@@ -67,7 +77,7 @@ ORDER BY q.id ASC;
 SELECT * FROM choices WHERE question_id = ANY(@question_ids::text[]) ORDER BY question_id, id ASC;
 
 -- name: ListAssessments :many
-SELECT * FROM assessments ORDER BY category ASC, id ASC LIMIT $1;
+SELECT id, category, max_attempts FROM assessments ORDER BY category ASC, id ASC LIMIT $1;
 
 -- name: DeleteAssessment :exec
 DELETE FROM assessments WHERE id = $1;
@@ -99,3 +109,8 @@ WHERE user_id = $1 AND assessment_id = $2;
 -- name: ClearSeenQuestions :exec
 DELETE FROM user_seen_questions
 WHERE user_id = $1 AND assessment_id = $2;
+
+-- name: BulkMarkQuestionsAsSeen :exec
+INSERT INTO user_seen_questions (user_id, assessment_id, question_id)
+SELECT @user_id::uuid, @assessment_id::text, unnest(@question_ids::text[])
+ON CONFLICT DO NOTHING;

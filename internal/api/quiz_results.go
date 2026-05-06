@@ -61,6 +61,29 @@ func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2.5 Enforce attempt limits
+	assessment, err := s.DB.GetAssessmentById(r.Context(), req.QuizID)
+	if err != nil {
+		s.Logger.Error("failed to fetch assessment for limit check", "error", err)
+		s.CreateErrorResponseJSON(w, "Assessment not found", http.StatusNotFound)
+		return
+	}
+	if assessment.MaxAttempts.Valid {
+		count, err := s.DB.GetAttemptCount(r.Context(), database.GetAttemptCountParams{
+			UserID: userID,
+			QuizID: req.QuizID,
+		})
+		if err != nil {
+			s.Logger.Error("failed to get attempt count", "error", err)
+			s.CreateErrorResponseJSON(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if count >= assessment.MaxAttempts.Int32 {
+			s.CreateErrorResponseJSON(w, "Attempt limit reached", http.StatusForbidden)
+			return
+		}
+	}
+
 	// 3. Start transaction
 	tx, err := s.DBRaw.BeginTx(r.Context(), nil)
 	if err != nil {
@@ -86,42 +109,46 @@ func (s *Server) SubmitAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Update global question stats
-	for _, outcome := range req.Outcomes {
-		var correct, mistakes int32
+	// 5. Update global question stats & mark as seen (Bulk)
+	questionIDs := make([]string, len(req.Outcomes))
+	corrects := make([]int32, len(req.Outcomes))
+	mistakes := make([]int32, len(req.Outcomes))
+
+	for i, outcome := range req.Outcomes {
+		questionIDs[i] = outcome.QuestionID
 		if outcome.IsCorrect {
-			correct = 1
+			corrects[i] = 1
+			mistakes[i] = 0
 		} else {
-			mistakes = 1
-		}
-
-		err := qtx.UpdateQuestionStats(r.Context(), database.UpdateQuestionStatsParams{
-			QuestionID: outcome.QuestionID,
-			Correct:    correct,
-			Mistakes:   mistakes,
-		})
-		if err != nil {
-			s.Logger.Error("failed to update question stats", "question_id", outcome.QuestionID, "error", err)
-			// We continue even if stats fail, or should we fail the whole thing?
-			// Since stats are for content optimization, failing the whole submission might be too aggressive.
-			// However, in a transaction, if we return error, it rollbacks.
-			// Let's stick to atomicity.
-			s.CreateErrorResponseJSON(w, "Failed to update stats", http.StatusInternalServerError)
-			return
-		}
-
-		s.Logger.Debug("Marking question as seen", "user_id", userID, "assessment_id", req.QuizID, "question_id", outcome.QuestionID)
-		err = qtx.MarkQuestionAsSeen(r.Context(), database.MarkQuestionAsSeenParams{
-			UserID:       userID,
-			AssessmentID: req.QuizID,
-			QuestionID:   outcome.QuestionID,
-		})
-		if err != nil {
-			s.Logger.Error("failed to mark question as seen", "question_id", outcome.QuestionID, "error", err)
-			s.CreateErrorResponseJSON(w, "Failed to record seen question", http.StatusInternalServerError)
-			return
+			corrects[i] = 0
+			mistakes[i] = 1
 		}
 	}
+
+	// Update global stats
+	err = qtx.BulkUpdateQuestionStats(r.Context(), database.BulkUpdateQuestionStatsParams{
+		QuestionIds: questionIDs,
+		Corrects:    corrects,
+		Mistakes:    mistakes,
+	})
+	if err != nil {
+		s.Logger.Error("failed to bulk update question stats", "error", err)
+		s.CreateErrorResponseJSON(w, "Failed to update stats", http.StatusInternalServerError)
+		return
+	}
+
+	// Mark as seen
+	err = qtx.BulkMarkQuestionsAsSeen(r.Context(), database.BulkMarkQuestionsAsSeenParams{
+		UserID:       userID,
+		AssessmentID: req.QuizID,
+		QuestionIds:  questionIDs,
+	})
+	if err != nil {
+		s.Logger.Error("failed to bulk mark questions as seen", "error", err)
+		s.CreateErrorResponseJSON(w, "Failed to record seen questions", http.StatusInternalServerError)
+		return
+	}
+
 
 	// 6. Commit transaction
 	if err := tx.Commit(); err != nil {

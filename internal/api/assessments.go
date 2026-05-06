@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"math/rand"
 	"net/http"
@@ -11,8 +12,9 @@ import (
 )
 
 type AssessmentResponse struct {
-	ID       string `json:"id"`
-	Category string `json:"category"`
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	MaxAttempts *int32 `json:"max_attempts"`
 }
 
 type QuestionStatsPayload struct {
@@ -42,9 +44,10 @@ type QuestionPayload struct {
 }
 
 type AssessmentPayload struct {
-	ID        string            `json:"id"`
-	Category  string            `json:"category"`
-	Questions []QuestionPayload `json:"questions"`
+	ID          string            `json:"id"`
+	Category    string            `json:"category"`
+	MaxAttempts *int32            `json:"max_attempts"`
+	Questions   []QuestionPayload `json:"questions"`
 }
 
 func (s *Server) CreateAssessment(w http.ResponseWriter, r *http.Request) {
@@ -302,13 +305,19 @@ func (s *Server) GetAssessment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build final payload
-	payload := AssessmentPayload{
-		ID:        assessment.ID,
-		Category:  assessment.Category,
-		Questions: questionPayloads,
+	var maxAttempts *int32
+	if assessment.MaxAttempts.Valid {
+		v := assessment.MaxAttempts.Int32
+		maxAttempts = &v
+	}
+	responsePayload := AssessmentPayload{
+		ID:          assessment.ID,
+		Category:    assessment.Category,
+		MaxAttempts: maxAttempts,
+		Questions:   questionPayloads,
 	}
 
-	s.CreateJSONResponse(w, http.StatusOK, payload)
+	s.CreateJSONResponse(w, http.StatusOK, responsePayload)
 }
 
 func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
@@ -344,13 +353,24 @@ func (s *Server) ListAssessments(w http.ResponseWriter, r *http.Request) {
 
 	response := make([]AssessmentResponse, len(assessments))
 	for i, a := range assessments {
-		response[i] = AssessmentResponse{
-			ID:       a.ID,
-			Category: a.Category,
-		}
+		response[i] = assessmentToResponse(a)
 	}
 
 	s.CreateJSONResponse(w, http.StatusOK, response)
+}
+
+// assessmentToResponse converts a db Assessment to an API response, mapping NullInt32 -> *int32.
+func assessmentToResponse(a database.Assessment) AssessmentResponse {
+	var maxAttempts *int32
+	if a.MaxAttempts.Valid {
+		v := a.MaxAttempts.Int32
+		maxAttempts = &v
+	}
+	return AssessmentResponse{
+		ID:          a.ID,
+		Category:    a.Category,
+		MaxAttempts: maxAttempts,
+	}
 }
 
 func (s *Server) DeleteAssessment(w http.ResponseWriter, r *http.Request) {
@@ -381,7 +401,8 @@ func (s *Server) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload struct {
-		Category string `json:"category"`
+		Category    string `json:"category"`
+		MaxAttempts *int32 `json:"max_attempts"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		s.CreateErrorResponseJSON(w, "invalid json payload", http.StatusBadRequest)
@@ -398,9 +419,127 @@ func (s *Server) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.CreateJSONResponse(w, http.StatusOK, AssessmentResponse{
-		ID:       assessment.ID,
-		Category: assessment.Category,
+	s.CreateJSONResponse(w, http.StatusOK, assessmentToResponse(assessment))
+}
+
+// UpdateAssessmentMaxAttempts sets max_attempts for an assessment (admin only).
+func (s *Server) UpdateAssessmentMaxAttempts(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		MaxAttempts *int32 `json:"max_attempts"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		s.CreateErrorResponseJSON(w, "invalid json payload", http.StatusBadRequest)
+		return
+	}
+
+	var nullMaxAttempts sql.NullInt32
+	if payload.MaxAttempts != nil {
+		nullMaxAttempts = sql.NullInt32{Int32: *payload.MaxAttempts, Valid: true}
+	}
+
+	assessment, err := s.DB.UpdateAssessmentMaxAttempts(r.Context(), database.UpdateAssessmentMaxAttemptsParams{
+		ID:          id,
+		MaxAttempts: nullMaxAttempts,
+	})
+	if err != nil {
+		s.Logger.Error("failed to update max attempts", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to update max attempts", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, assessmentToResponse(assessment))
+}
+
+// ClearAssessmentAttempts deletes all quiz_results for an assessment (global reset — admin only).
+func (s *Server) ClearAssessmentAttempts(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	err := s.DB.ClearAttemptsForAssessment(r.Context(), id)
+	if err != nil {
+		s.Logger.Error("failed to clear attempts", "error", err)
+		s.CreateErrorResponseJSON(w, "failed to clear attempts", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, map[string]string{
+		"message": "attempts cleared successfully",
+	})
+}
+
+// GetAttemptStatus returns how many attempts a user has made and the limit (user-facing).
+func (s *Server) GetAttemptStatus(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		s.CreateErrorResponseJSON(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get assessment to fetch max_attempts
+	assessment, err := s.DB.GetAssessmentById(r.Context(), id)
+	if err != nil {
+		s.CreateErrorResponseJSON(w, "assessment not found", http.StatusNotFound)
+		return
+	}
+
+	type AttemptStatusResponse struct {
+		AttemptsUsed int32  `json:"attempts_used"`
+		MaxAttempts  *int32 `json:"max_attempts"`
+		LimitReached bool   `json:"limit_reached"`
+	}
+
+	var maxAttempts *int32
+	if assessment.MaxAttempts.Valid {
+		v := assessment.MaxAttempts.Int32
+		maxAttempts = &v
+	}
+
+	// If there's no limit, no need to check attempts
+	if maxAttempts == nil {
+		s.CreateJSONResponse(w, http.StatusOK, AttemptStatusResponse{
+			AttemptsUsed: 0,
+			MaxAttempts:  nil,
+			LimitReached: false,
+		})
+		return
+	}
+
+	// Must be authenticated to have tracked attempts
+	val := r.Context().Value("user_id")
+	userID, ok := val.(uuid.UUID)
+	if !ok {
+		// Unauthenticated user — block them if there's a limit
+		s.CreateJSONResponse(w, http.StatusOK, AttemptStatusResponse{
+			AttemptsUsed: 0,
+			MaxAttempts:  maxAttempts,
+			LimitReached: true, // treat as blocked — frontend will prompt login
+		})
+		return
+	}
+
+	count, err := s.DB.GetAttemptCount(r.Context(), database.GetAttemptCountParams{
+		UserID: userID,
+		QuizID: id,
+	})
+	if err != nil {
+		s.Logger.Error("failed to get attempt count", "error", err)
+		s.CreateErrorResponseJSON(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	s.CreateJSONResponse(w, http.StatusOK, AttemptStatusResponse{
+		AttemptsUsed: count,
+		MaxAttempts:  maxAttempts,
+		LimitReached: count >= *maxAttempts,
 	})
 }
 

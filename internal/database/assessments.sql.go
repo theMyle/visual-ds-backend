@@ -97,6 +97,32 @@ func (q *Queries) BulkCreateQuestions(ctx context.Context, arg BulkCreateQuestio
 	return err
 }
 
+const bulkMarkQuestionsAsSeen = `-- name: BulkMarkQuestionsAsSeen :exec
+INSERT INTO user_seen_questions (user_id, assessment_id, question_id)
+SELECT $1::uuid, $2::text, unnest($3::text[])
+ON CONFLICT DO NOTHING
+`
+
+type BulkMarkQuestionsAsSeenParams struct {
+	UserID       uuid.UUID
+	AssessmentID string
+	QuestionIds  []string
+}
+
+func (q *Queries) BulkMarkQuestionsAsSeen(ctx context.Context, arg BulkMarkQuestionsAsSeenParams) error {
+	_, err := q.db.ExecContext(ctx, bulkMarkQuestionsAsSeen, arg.UserID, arg.AssessmentID, pq.Array(arg.QuestionIds))
+	return err
+}
+
+const clearAttemptsForAssessment = `-- name: ClearAttemptsForAssessment :exec
+DELETE FROM quiz_results WHERE quiz_id = $1
+`
+
+func (q *Queries) ClearAttemptsForAssessment(ctx context.Context, quizID string) error {
+	_, err := q.db.ExecContext(ctx, clearAttemptsForAssessment, quizID)
+	return err
+}
+
 const clearSeenQuestions = `-- name: ClearSeenQuestions :exec
 DELETE FROM user_seen_questions
 WHERE user_id = $1 AND assessment_id = $2
@@ -117,7 +143,7 @@ INSERT INTO assessments (
     id, category
 ) VALUES (
     $1, $2
-) RETURNING id, category
+) RETURNING id, category, max_attempts
 `
 
 type CreateAssessmentParams struct {
@@ -128,7 +154,7 @@ type CreateAssessmentParams struct {
 func (q *Queries) CreateAssessment(ctx context.Context, arg CreateAssessmentParams) (Assessment, error) {
 	row := q.db.QueryRowContext(ctx, createAssessment, arg.ID, arg.Category)
 	var i Assessment
-	err := row.Scan(&i.ID, &i.Category)
+	err := row.Scan(&i.ID, &i.Category, &i.MaxAttempts)
 	return i, err
 }
 
@@ -233,7 +259,7 @@ func (q *Queries) DeleteQuestion(ctx context.Context, id string) error {
 }
 
 const getAssessment = `-- name: GetAssessment :one
-SELECT id, category FROM assessments WHERE category = $1 AND id = $2 LIMIT 1
+SELECT id, category, max_attempts FROM assessments WHERE category = $1 AND id = $2 LIMIT 1
 `
 
 type GetAssessmentParams struct {
@@ -244,19 +270,36 @@ type GetAssessmentParams struct {
 func (q *Queries) GetAssessment(ctx context.Context, arg GetAssessmentParams) (Assessment, error) {
 	row := q.db.QueryRowContext(ctx, getAssessment, arg.Category, arg.ID)
 	var i Assessment
-	err := row.Scan(&i.ID, &i.Category)
+	err := row.Scan(&i.ID, &i.Category, &i.MaxAttempts)
 	return i, err
 }
 
 const getAssessmentById = `-- name: GetAssessmentById :one
-SELECT id, category FROM assessments WHERE id = $1 LIMIT 1
+SELECT id, category, max_attempts FROM assessments WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAssessmentById(ctx context.Context, id string) (Assessment, error) {
 	row := q.db.QueryRowContext(ctx, getAssessmentById, id)
 	var i Assessment
-	err := row.Scan(&i.ID, &i.Category)
+	err := row.Scan(&i.ID, &i.Category, &i.MaxAttempts)
 	return i, err
+}
+
+const getAttemptCount = `-- name: GetAttemptCount :one
+SELECT COUNT(*)::int AS count FROM quiz_results
+WHERE user_id = $1 AND quiz_id = $2
+`
+
+type GetAttemptCountParams struct {
+	UserID uuid.UUID
+	QuizID string
+}
+
+func (q *Queries) GetAttemptCount(ctx context.Context, arg GetAttemptCountParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getAttemptCount, arg.UserID, arg.QuizID)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
 }
 
 const getChoicesByQuestionIds = `-- name: GetChoicesByQuestionIds :many
@@ -378,7 +421,7 @@ func (q *Queries) GetSeenQuestionIds(ctx context.Context, arg GetSeenQuestionIds
 }
 
 const listAssessments = `-- name: ListAssessments :many
-SELECT id, category FROM assessments ORDER BY category ASC, id ASC LIMIT $1
+SELECT id, category, max_attempts FROM assessments ORDER BY category ASC, id ASC LIMIT $1
 `
 
 func (q *Queries) ListAssessments(ctx context.Context, limit int32) ([]Assessment, error) {
@@ -390,7 +433,7 @@ func (q *Queries) ListAssessments(ctx context.Context, limit int32) ([]Assessmen
 	var items []Assessment
 	for rows.Next() {
 		var i Assessment
-		if err := rows.Scan(&i.ID, &i.Category); err != nil {
+		if err := rows.Scan(&i.ID, &i.Category, &i.MaxAttempts); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -422,7 +465,7 @@ func (q *Queries) MarkQuestionAsSeen(ctx context.Context, arg MarkQuestionAsSeen
 }
 
 const updateAssessment = `-- name: UpdateAssessment :one
-UPDATE assessments SET category = $2 WHERE id = $1 RETURNING id, category
+UPDATE assessments SET category = $2 WHERE id = $1 RETURNING id, category, max_attempts
 `
 
 type UpdateAssessmentParams struct {
@@ -433,7 +476,23 @@ type UpdateAssessmentParams struct {
 func (q *Queries) UpdateAssessment(ctx context.Context, arg UpdateAssessmentParams) (Assessment, error) {
 	row := q.db.QueryRowContext(ctx, updateAssessment, arg.ID, arg.Category)
 	var i Assessment
-	err := row.Scan(&i.ID, &i.Category)
+	err := row.Scan(&i.ID, &i.Category, &i.MaxAttempts)
+	return i, err
+}
+
+const updateAssessmentMaxAttempts = `-- name: UpdateAssessmentMaxAttempts :one
+UPDATE assessments SET max_attempts = $2 WHERE id = $1 RETURNING id, category, max_attempts
+`
+
+type UpdateAssessmentMaxAttemptsParams struct {
+	ID          string
+	MaxAttempts sql.NullInt32
+}
+
+func (q *Queries) UpdateAssessmentMaxAttempts(ctx context.Context, arg UpdateAssessmentMaxAttemptsParams) (Assessment, error) {
+	row := q.db.QueryRowContext(ctx, updateAssessmentMaxAttempts, arg.ID, arg.MaxAttempts)
+	var i Assessment
+	err := row.Scan(&i.ID, &i.Category, &i.MaxAttempts)
 	return i, err
 }
 

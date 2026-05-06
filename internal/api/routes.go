@@ -38,6 +38,9 @@ func (s *Server) Routes() http.Handler {
 	// Webhooks (no auth required - signature verification handles security)
 	mux.HandleFunc("POST /webhooks/clerk/user", s.HandleClerkUserWebhook)
 
+	// Public Verification (Certificate)
+	mux.HandleFunc("GET /public/verify/{userId}", s.GetPublicUserEligibility)
+
 	// users
 	protectedMux.HandleFunc("GET /users/me", s.GetUser)
 
@@ -57,6 +60,7 @@ func (s *Server) Routes() http.Handler {
 	// assessments
 	mux.HandleFunc("GET /assessments", s.ListAssessments)
 	mux.Handle("GET /assessments/{id}", s.OptionalAuthMiddleware(http.HandlerFunc(s.GetAssessment)))
+	mux.Handle("GET /assessments/{id}/attempt-status", s.OptionalAuthMiddleware(http.HandlerFunc(s.GetAttemptStatus)))
 
 	protectedMux.HandleFunc("POST /assessments/submit", s.SubmitAssessment)
 	protectedMux.HandleFunc("GET /assessments/results", s.GetQuizResults)
@@ -74,6 +78,8 @@ func (s *Server) Routes() http.Handler {
 	adminMux.HandleFunc("GET /assessments/{id}", s.GetAssessment)
 	adminMux.HandleFunc("PUT /assessments/{id}", s.UpdateAssessment)
 	adminMux.HandleFunc("DELETE /assessments/{id}", s.DeleteAssessment)
+	adminMux.HandleFunc("PATCH /assessments/{id}/max-attempts", s.UpdateAssessmentMaxAttempts)
+	adminMux.HandleFunc("DELETE /assessments/{id}/attempts", s.ClearAssessmentAttempts)
 	adminMux.HandleFunc("POST /assessments/{id}/questions", s.AddQuestion)
 	adminMux.HandleFunc("PUT /questions/{id}", s.UpdateQuestion)
 	adminMux.HandleFunc("DELETE /questions/{id}", s.DeleteQuestion)

@@ -7,7 +7,28 @@ package database
 
 import (
 	"context"
+
+	"github.com/lib/pq"
 )
+
+const bulkUpdateQuestionStats = `-- name: BulkUpdateQuestionStats :exec
+INSERT INTO question_stats (question_id, correct, mistakes)
+SELECT unnest($1::text[]), unnest($2::int[]), unnest($3::int[])
+ON CONFLICT (question_id) DO UPDATE SET
+    correct = question_stats.correct + EXCLUDED.correct,
+    mistakes = question_stats.mistakes + EXCLUDED.mistakes
+`
+
+type BulkUpdateQuestionStatsParams struct {
+	QuestionIds []string
+	Corrects    []int32
+	Mistakes    []int32
+}
+
+func (q *Queries) BulkUpdateQuestionStats(ctx context.Context, arg BulkUpdateQuestionStatsParams) error {
+	_, err := q.db.ExecContext(ctx, bulkUpdateQuestionStats, pq.Array(arg.QuestionIds), pq.Array(arg.Corrects), pq.Array(arg.Mistakes))
+	return err
+}
 
 const getQuestionStats = `-- name: GetQuestionStats :one
 SELECT question_id, correct, mistakes FROM question_stats WHERE question_id = $1
