@@ -104,9 +104,11 @@ func (s *Server) Routes() http.Handler {
 
 	// simulator progress
 	protectedMux.HandleFunc("GET /simulator-progress", s.ListUserSimulatorProgress)
-	protectedMux.HandleFunc("GET /simulator-progress/{category}", s.ListUserSimulatorProgressForCategory)
-	protectedMux.HandleFunc("GET /simulator-progress/{category}/{path}", s.GetSimulatorProgress)
+	protectedMux.HandleFunc("GET /simulator-progress/{category}", s.GetSimulatorProgress)
 	protectedMux.HandleFunc("POST /simulator-progress/{category}", s.UpsertSimulatorProgress)
+
+	// simulator submissions history
+	protectedMux.HandleFunc("GET /simulator-submissions/{challengeId}", s.ListUserSubmissionsForChallenge)
 
 	return s.CORSMiddleware(mux)
 }

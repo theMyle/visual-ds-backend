@@ -12,7 +12,7 @@ import (
 )
 
 const getSimulatorProgress = `-- name: GetSimulatorProgress :one
-SELECT user_id, simulator_category, path, is_completed, updated_at FROM simulator_progress
+SELECT user_id, simulator_category, path, is_completed, updated_at, last_submitted_code FROM simulator_progress
 WHERE user_id = $1 AND path = $2
 `
 
@@ -31,12 +31,13 @@ func (q *Queries) GetSimulatorProgress(ctx context.Context, arg GetSimulatorProg
 		&i.Path,
 		&i.IsCompleted,
 		&i.UpdatedAt,
+		&i.LastSubmittedCode,
 	)
 	return i, err
 }
 
 const listUserSimulatorProgress = `-- name: ListUserSimulatorProgress :many
-SELECT user_id, simulator_category, path, is_completed, updated_at FROM simulator_progress
+SELECT user_id, simulator_category, path, is_completed, updated_at, last_submitted_code FROM simulator_progress
 WHERE user_id = $1
 ORDER BY simulator_category, path
 `
@@ -57,6 +58,7 @@ func (q *Queries) ListUserSimulatorProgress(ctx context.Context, userID uuid.UUI
 			&i.Path,
 			&i.IsCompleted,
 			&i.UpdatedAt,
+			&i.LastSubmittedCode,
 		); err != nil {
 			return nil, err
 		}
@@ -72,7 +74,7 @@ func (q *Queries) ListUserSimulatorProgress(ctx context.Context, userID uuid.UUI
 }
 
 const listUserSimulatorProgressForCategory = `-- name: ListUserSimulatorProgressForCategory :many
-SELECT user_id, simulator_category, path, is_completed, updated_at FROM simulator_progress
+SELECT user_id, simulator_category, path, is_completed, updated_at, last_submitted_code FROM simulator_progress
 WHERE user_id = $1 AND simulator_category = $2
 `
 
@@ -97,6 +99,7 @@ func (q *Queries) ListUserSimulatorProgressForCategory(ctx context.Context, arg 
 			&i.Path,
 			&i.IsCompleted,
 			&i.UpdatedAt,
+			&i.LastSubmittedCode,
 		); err != nil {
 			return nil, err
 		}
@@ -112,11 +115,12 @@ func (q *Queries) ListUserSimulatorProgressForCategory(ctx context.Context, arg 
 }
 
 const upsertSimulatorProgress = `-- name: UpsertSimulatorProgress :exec
-INSERT INTO simulator_progress (user_id, simulator_category, path, is_completed)
-VALUES ($1, $2, $3, $4)
+INSERT INTO simulator_progress (user_id, simulator_category, path, is_completed, last_submitted_code)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id, path) DO UPDATE
 SET 
     is_completed = EXCLUDED.is_completed,
+    last_submitted_code = EXCLUDED.last_submitted_code,
     updated_at = now()
 `
 
@@ -125,6 +129,7 @@ type UpsertSimulatorProgressParams struct {
 	SimulatorCategory string
 	Path              string
 	IsCompleted       bool
+	LastSubmittedCode string
 }
 
 // Store or update a user's progress for a specific simulator path
@@ -134,6 +139,7 @@ func (q *Queries) UpsertSimulatorProgress(ctx context.Context, arg UpsertSimulat
 		arg.SimulatorCategory,
 		arg.Path,
 		arg.IsCompleted,
+		arg.LastSubmittedCode,
 	)
 	return err
 }

@@ -1,10 +1,11 @@
 -- name: UpsertSimulatorProgress :exec
 -- Store or update a user's progress for a specific simulator path
-INSERT INTO simulator_progress (user_id, simulator_category, path, is_completed)
-VALUES ($1, $2, $3, $4)
+INSERT INTO simulator_progress (user_id, simulator_category, path, is_completed, last_submitted_code)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id, path) DO UPDATE
 SET 
     is_completed = EXCLUDED.is_completed,
+    last_submitted_code = EXCLUDED.last_submitted_code,
     updated_at = now();
 
 -- name: GetSimulatorProgress :one

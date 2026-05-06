@@ -113,6 +113,17 @@ type SimulatorProgress struct {
 	Path              string
 	IsCompleted       bool
 	UpdatedAt         sql.NullTime
+	LastSubmittedCode string
+}
+
+type SimulatorSubmission struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	SimulatorID string
+	ChallengeID string
+	Code        string
+	Status      string
+	CreatedAt   sql.NullTime
 }
 
 type User struct {

@@ -20,12 +20,15 @@ type SimulatorProgressResponse struct {
 	SimulatorCategory string     `json:"simulator_category"`
 	Path              string     `json:"path"`
 	IsCompleted       bool       `json:"is_completed"`
+	LastSubmittedCode string     `json:"last_submitted_code"`
 	UpdatedAt         *time.Time `json:"updated_at"`
 }
 
 type UpsertSimulatorProgressRequest struct {
-	Path        string `json:"path"`
-	IsCompleted bool   `json:"is_completed"`
+	Path              string `json:"path"`
+	IsCompleted       bool   `json:"is_completed"`
+	LastSubmittedCode string `json:"last_submitted_code"`
+	ChallengeID       string `json:"challenge_id"`
 }
 
 // Mappers
@@ -41,6 +44,7 @@ func ToSimulatorProgress(s database.SimulatorProgress) SimulatorProgressResponse
 		SimulatorCategory: s.SimulatorCategory,
 		Path:              s.Path,
 		IsCompleted:       s.IsCompleted,
+		LastSubmittedCode: s.LastSubmittedCode,
 		UpdatedAt:         updatedAt,
 	}
 }
@@ -76,7 +80,9 @@ func (s *Server) ListUserSimulatorProgress(w http.ResponseWriter, r *http.Reques
 	s.CreateJSONResponse(w, 200, res)
 }
 
-func (s *Server) ListUserSimulatorProgressForCategory(w http.ResponseWriter, r *http.Request) {
+
+
+func (s *Server) GetSimulatorProgress(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second*30)
 	defer cancel()
 
@@ -88,16 +94,48 @@ func (s *Server) ListUserSimulatorProgressForCategory(w http.ResponseWriter, r *
 	}
 
 	rawCategory := r.PathValue("category")
+	rawPath := r.URL.Query().Get("path")
+
 	simulatorCategory := strings.ToLower(strings.TrimSpace(rawCategory))
+	path := strings.ToLower(strings.TrimSpace(rawPath))
 
 	if simulatorCategory == "" {
-		s.Logger.Warn("invalid simulator_category",
-			"simulator_category", simulatorCategory,
-		)
-		s.CreateErrorResponseJSON(w, "Invalid simulator parameters", http.StatusBadRequest)
+		s.CreateErrorResponseJSON(w, "Invalid simulator category", http.StatusBadRequest)
 		return
 	}
 
+	// If path is provided, get specific progress entry
+	if path != "" {
+		progress, err := s.DB.GetSimulatorProgress(ctx, database.GetSimulatorProgressParams{
+			UserID: userid,
+			Path:   path,
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				s.CreateErrorResponseJSON(w, "simulator progress not found", http.StatusNotFound)
+				return
+			}
+
+			s.Logger.Error("error getting simulator progress entry",
+				"error", err,
+				"user_id", userid,
+				"path", path,
+			)
+			s.CreateErrorResponseJSON(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		if progress.SimulatorCategory != simulatorCategory {
+			s.CreateErrorResponseJSON(w, "simulator progress category mismatch", http.StatusNotFound)
+			return
+		}
+
+		res := ToSimulatorProgress(progress)
+		s.CreateJSONResponse(w, http.StatusOK, res)
+		return
+	}
+
+	// Otherwise, list all progress for the category
 	dbProgress, err := s.DB.ListUserSimulatorProgressForCategory(ctx, database.ListUserSimulatorProgressForCategoryParams{
 		UserID:            userid,
 		SimulatorCategory: simulatorCategory,
@@ -118,65 +156,6 @@ func (s *Server) ListUserSimulatorProgressForCategory(w http.ResponseWriter, r *
 	}
 
 	s.CreateJSONResponse(w, 200, res)
-}
-
-func (s *Server) GetSimulatorProgress(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second*3)
-	defer cancel()
-
-	val := r.Context().Value("user_id")
-	userid, ok := val.(uuid.UUID)
-	if !ok {
-		s.CreateErrorResponseJSON(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	rawCategory := r.PathValue("category")
-	rawPath := r.PathValue("path")
-
-	simulatorCategory := strings.ToLower(strings.TrimSpace(rawCategory))
-	path := strings.ToLower(strings.TrimSpace(rawPath))
-
-	if simulatorCategory == "" || path == "" {
-		s.Logger.Warn("invalid simulator_category or path",
-			"simulator_category", simulatorCategory,
-			"path", path,
-		)
-		s.CreateErrorResponseJSON(w, "Invalid simulator parameters", http.StatusBadRequest)
-		return
-	}
-
-	progress, err := s.DB.GetSimulatorProgress(ctx, database.GetSimulatorProgressParams{
-		UserID: userid,
-		Path:   path,
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			s.Logger.Warn("simulator progress not found",
-				"error", err,
-				"user_id", userid,
-				"path", path,
-			)
-			s.CreateErrorResponseJSON(w, "simulator progress not found", http.StatusNotFound)
-			return
-		}
-
-		s.Logger.Error("error getting simulator progress entry",
-			"error", err,
-			"user_id", userid,
-			"path", path,
-		)
-		s.CreateErrorResponseJSON(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if progress.SimulatorCategory != simulatorCategory {
-		s.CreateErrorResponseJSON(w, "simulator progress category mismatch", http.StatusNotFound)
-		return
-	}
-
-	res := ToSimulatorProgress(progress)
-	s.CreateJSONResponse(w, http.StatusOK, res)
 }
 
 func (s *Server) UpsertSimulatorProgress(w http.ResponseWriter, r *http.Request) {
@@ -203,10 +182,9 @@ func (s *Server) UpsertSimulatorProgress(w http.ResponseWriter, r *http.Request)
 
 	var req UpsertSimulatorProgressRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.Logger.Warn("invalid json body",
-			"error", err,
-		)
-		s.CreateErrorResponseJSON(w, "Invalid JSON body", http.StatusBadRequest)
+		s.Logger.Warn("error decoding upsert simulator progress request",
+			"error", err)
+		s.CreateErrorResponseJSON(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
@@ -222,12 +200,32 @@ func (s *Server) UpsertSimulatorProgress(w http.ResponseWriter, r *http.Request)
 		SimulatorCategory: simulatorCategory,
 		Path:              path,
 		IsCompleted:       req.IsCompleted,
+		LastSubmittedCode: req.LastSubmittedCode,
 	})
 	if err != nil {
 		s.Logger.Error("error upserting simulator progress entry",
 			"error", err)
 		s.CreateErrorResponseJSON(w, "Internal Server Error", http.StatusInternalServerError)
 		return
+	}
+
+	// If completed, save to history
+	if req.IsCompleted && req.ChallengeID != "" {
+		_, err := s.DB.CreateSimulatorSubmission(ctx, database.CreateSimulatorSubmissionParams{
+			UserID:      userID,
+			SimulatorID: simulatorCategory,
+			ChallengeID: req.ChallengeID,
+			Code:        req.LastSubmittedCode,
+			Status:      "SUCCESS",
+		})
+		if err != nil {
+			s.Logger.Warn("error saving simulator submission history",
+				"error", err,
+				"user_id", userID,
+				"challenge_id", req.ChallengeID,
+			)
+			// Don't fail the whole request if history save fails
+		}
 	}
 
 	progress, err := s.DB.GetSimulatorProgress(ctx, database.GetSimulatorProgressParams{
